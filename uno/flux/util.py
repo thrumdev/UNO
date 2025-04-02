@@ -264,7 +264,6 @@ def load_flow_model_only_lora(
     else:
         lora_ckpt_path = os.environ.get("LORA", "./output/dit_lora.safetensors") # TODO turn to None when uploaded
 
-    print(f'>>>>>>>>{configs[name].params}')
     with torch.device("meta" if ckpt_path is not None else device):
         model = Flux(configs[name].params)
 
@@ -280,10 +279,8 @@ def load_flow_model_only_lora(
                 layer_index = int(match.group(1))
 
             if name.startswith("double_blocks") and layer_index in double_blocks_idx:
-                print("setting LoRA Processor for", name)
                 lora_attn_procs[name] = DoubleStreamBlockLoraProcessor(dim=3072, rank=lora_rank)
             elif name.startswith("single_blocks") and layer_index in single_blocks_idx:
-                print("setting LoRA Processor for", name)
                 lora_attn_procs[name] = SingleStreamBlockLoraProcessor(
                     dim=3072, rank=lora_rank
                     )

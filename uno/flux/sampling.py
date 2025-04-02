@@ -39,7 +39,6 @@ def prepare(
     pe: Literal['d', 'h', 'w', 'o'] ='d'
 ) -> dict[str, Tensor]:
     assert pe in ['d', 'h', 'w', 'o']
-    print(f'using pe type {pe}')
     bs, c, h, w = img.shape
     if bs == 1 and not isinstance(prompt, str):
         bs = len(prompt)
@@ -105,7 +104,6 @@ def prepare_multi_ip(
     pe: Literal['d', 'h', 'w', 'o'] = 'd'
 ) -> dict[str, Tensor]:
     assert pe in ['d', 'h', 'w', 'o']
-    print(f'using pe type {pe}')
     bs, c, h, w = img.shape
     if bs == 1 and not isinstance(prompt, str):
         bs = len(prompt)
@@ -212,12 +210,10 @@ def denoise(
     timestep_to_start_cfg=0,
     ref_img: Tensor=None,
     ref_img_ids: Tensor=None,
-    **kwargs
 ):
     i = 0
-    # this is ignored for schnell
     guidance_vec = torch.full((img.shape[0],), guidance, device=img.device, dtype=img.dtype)
-    for t_curr, t_prev in tqdm(zip(timesteps[:-1], timesteps[1:])):
+    for t_curr, t_prev in tqdm(zip(timesteps[:-1], timesteps[1:]), total=len(timesteps) - 1):
         t_vec = torch.full((img.shape[0],), t_curr, dtype=img.dtype, device=img.device)
         pred = model(
             img=img,

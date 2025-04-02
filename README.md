@@ -44,8 +44,16 @@ python app.py
 
 
 ### Inference Scripts
+
+- Optional prepreration: If you want to test the inference on dreambench at the first time, you should clone the submodule `dreambench` to download the dataset.
+
 ```bash
-python main_ip.py
+git submodule update --init
+```
+
+
+```bash
+python inference.py
 ```
 
 

@@ -59,7 +59,7 @@ def find_nearest_scale(image_h, image_w, predefined_scales):
     """
     # 计算输入图片的长宽比
     image_ratio = image_h / image_w
-    
+
     # 初始化变量以存储最小差异和最近的尺度
     min_diff = float('inf')
     nearest_scale = None
@@ -68,11 +68,11 @@ def find_nearest_scale(image_h, image_w, predefined_scales):
     for scale_h, scale_w in predefined_scales:
         predefined_ratio = scale_h / scale_w
         diff = abs(predefined_ratio - image_ratio)
-        
+
         if diff < min_diff:
             min_diff = diff
             nearest_scale = (scale_h, scale_w)
-    
+
     return nearest_scale
 
 
@@ -89,7 +89,7 @@ class FLUXPairedDataset(Dataset):
 
         with open(json_file, 'r') as f:
             data = json.load(f)
-        if not self.is_eval:            
+        if not self.is_eval:
             for k, v in data.items():
                 v['dict_key'] = k
             data = sorted(data.items(), key=lambda x: x[0].split('/')[0])
@@ -110,11 +110,11 @@ class FLUXPairedDataset(Dataset):
     def _shuffle_in_groups(self, lst, group_size):
         groups = [lst[i: i + group_size] for i in range(0, len(lst), group_size)]
         random.shuffle(groups)
-        
+
         shuffled_lst = []
         for group in groups:
             shuffled_lst.extend(group)
-        
+
         return shuffled_lst
 
     def _process_image_varlen(self, image, predefined_scales=None, bbox=None, mask_rle=None, cropped_ratio=None):
@@ -128,7 +128,7 @@ class FLUXPairedDataset(Dataset):
             mask_reverse = (mask==0)*255
             raw_image = raw_image + mask_reverse
 
-            raw_image = Image.fromarray(cv2.cvtColor(raw_image.astype(np.uint8),cv2.COLOR_BGR2RGB)) 
+            raw_image = Image.fromarray(cv2.cvtColor(raw_image.astype(np.uint8),cv2.COLOR_BGR2RGB))
         else:
             raw_image = Image.open(os.path.join(self.image_root_path, image))
         if cropped_ratio is not None:
@@ -156,30 +156,31 @@ class FLUXPairedDataset(Dataset):
             image_w, image_h = raw_image.size
             # 为了varlen inference，把图片按bucket进行resize
             bucket_h, bucket_w = find_nearest_scale(image_h, image_w, predefined_scales)
-    
+
             aspect_ratio = bucket_w / bucket_h
             resize = RandomResizedCrop(
-                                        size=(bucket_h, bucket_w),  # Crop to target width height
-                                        scale=(1, 1),  # Do not scale.
-                                        ratio=(aspect_ratio, aspect_ratio),  # Keep target aspect ratio.
-                                        interpolation=InterpolationMode.LANCZOS  # Use LANCZO for downsample.
-                                    )
-            crop_top_coord, crop_left_coord, _, _ = resize.get_params(raw_image, scale=(1, 1), ratio=(
-                                aspect_ratio, aspect_ratio))
+                size=(bucket_h, bucket_w),
+                scale=(1, 1),
+                ratio=(aspect_ratio, aspect_ratio),
+                interpolation=InterpolationMode.LANCZOS
+            )
+            crop_top_coord, crop_left_coord, _, _ = resize.get_params(
+                raw_image, scale=(1, 1), ratio=(aspect_ratio, aspect_ratio)
+            )
             crop_coords_top_left = torch.tensor([crop_top_coord, crop_left_coord])
             raw_image = resize(raw_image)
-        raw_image = raw_image.convert("RGB")            
-        
+        raw_image = raw_image.convert("RGB")
+
         return raw_image, crop_coords_top_left
 
     def _process_eval_data(self, idx):
-        item = self.data[idx] 
+        item = self.data[idx]
         # read
         dict_key = item["index"]
         img1 = os.path.join(self.image_root_path, item["image_path"])
         txt1 = item["text"]
 
-        predefined_scales = [(384, 512), (512, 384), [512, 512]]  # 预定义尺度列表        
+        predefined_scales = [(384, 512), (512, 384), [512, 512]]  # 预定义尺度列表
         # read and process image
         raw_image1, ref_crop_coords_top_left1 = self._process_image_varlen(img1, predefined_scales)
 
@@ -189,19 +190,19 @@ class FLUXPairedDataset(Dataset):
         if self.args.rank == 1 and not os.path.exists(os.path.join(save_ref, f"{dict_key}.jpg")):
             os.makedirs(save_ref, exist_ok=True)
             # 创建一个可以在图像上绘图的对象
-            draw = ImageDraw.Draw(raw_image1) 
+            draw = ImageDraw.Draw(raw_image1)
             # 选择字体和大小
             font = ImageFont.truetype("DejaVuSans.ttf", 10)
 
             # 在图像上绘制文本
             draw.text((8,8), txt1, font=font, fill=(255, 0, 0))
             raw_image1.save(os.path.join(save_ref, f"{dict_key}.jpg"))
-            ## 存图片 ##  
-        
+            ## 存图片 ##
+
         return {
             "index": dict_key,
             # "dict_key": dict_key,
-            "img": image,            
+            "img": image,
             "ref_img": image,
             "txt": txt1
         }
@@ -215,7 +216,7 @@ class FLUXPairedDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-def FLUXPaired_collate(batch):
+def flux_paired_collate(batch):
     base_size = batch[0]['img'].shape[1:]
     for sample in batch[1:]:
         size = sample['img'].shape[1:]
@@ -247,11 +248,10 @@ def get_flux_paired_eval_loader(args, samples=None):
         num_workers=2,
         prefetch_factor=4,
         pin_memory=True,
-        collate_fn=FLUXPaired_collate)
+        collate_fn=flux_paired_collate
+    )
 
     eval_dataloader_iter = iter(eval_dataloader)
-
-    # print(f"[RANK:{args.rank}] Dataset loaded.")
 
     return eval_dataloader, eval_dataloader_iter
 
@@ -278,7 +278,7 @@ class FLUXPairedMultiIPDataset(Dataset):
             # 根据分辨率，以组进行shuffle
             data = self._shuffle_in_groups(data, 64)
 
-            self.data = list(map(lambda x: x[1], data))    
+            self.data = list(map(lambda x: x[1], data))
 
         self.args = args
 
@@ -291,30 +291,30 @@ class FLUXPairedMultiIPDataset(Dataset):
     def _shuffle_in_groups(self, lst, group_size):
         # 将 list 切分成相邻的组
         groups = [lst[i: i + group_size] for i in range(0, len(lst), group_size)]
-        
+
         # 对组进行 shuffle
         random.shuffle(groups)
-        
+
         # 将 shuffle 后的组重新组合成一个新的列表
         shuffled_lst = []
         for group in groups:
             shuffled_lst.extend(group)
-        
+
         return shuffled_lst
-    
+
     def _horizontal_concat(self, images):
         widths, heights = zip(*(img.size for img in images))
-        
+
         total_width = sum(widths)
         max_height = max(heights)
-        
+
         new_im = Image.new('RGB', (total_width, max_height))
-        
+
         x_offset = 0
         for img in images:
             new_im.paste(img, (x_offset, 0))
             x_offset += img.size[0]
-        
+
         return new_im
 
     def process_bbox(self, raw_image, bbox, rorate_angle=0, mask_rle=None, expand_ratio=1.2):
@@ -390,7 +390,7 @@ class FLUXPairedMultiIPDataset(Dataset):
             mask_reverse = (mask==0)*255
             raw_image = raw_image + mask_reverse
 
-            raw_image = Image.fromarray(cv2.cvtColor(raw_image.astype(np.uint8),cv2.COLOR_BGR2RGB)) 
+            raw_image = Image.fromarray(cv2.cvtColor(raw_image.astype(np.uint8),cv2.COLOR_BGR2RGB))
         else:
             raw_image = Image.open(os.path.join(self.image_root_path, image))
         if cropped_ratio is not None:
@@ -409,20 +409,21 @@ class FLUXPairedMultiIPDataset(Dataset):
             image_w, image_h = raw_image.size
             # 为了varlen inference，把图片按bucket进行resize
             bucket_h, bucket_w = find_nearest_scale(image_h, image_w, predefined_scales)
-    
+
             aspect_ratio = bucket_w / bucket_h
             resize = RandomResizedCrop(
-                                        size=(bucket_h, bucket_w),  # Crop to target width height
-                                        scale=(1, 1),  # Do not scale.
-                                        ratio=(aspect_ratio, aspect_ratio),  # Keep target aspect ratio.
-                                        interpolation=InterpolationMode.LANCZOS  # Use LANCZO for downsample.
-                                    )
-            crop_top_coord, crop_left_coord, _, _ = resize.get_params(raw_image, scale=(1, 1), ratio=(
-                                aspect_ratio, aspect_ratio))
+                size=(bucket_h, bucket_w),
+                scale=(1, 1),
+                ratio=(aspect_ratio, aspect_ratio),
+                interpolation=InterpolationMode.LANCZOS
+            )
+            crop_top_coord, crop_left_coord, _, _ = resize.get_params(
+                raw_image, scale=(1, 1), ratio=(aspect_ratio, aspect_ratio)
+            )
             crop_coords_top_left = torch.tensor([crop_top_coord, crop_left_coord])
             raw_image = resize(raw_image)
-        raw_image = raw_image.convert("RGB")            
-        
+        raw_image = raw_image.convert("RGB")
+
         return raw_image, crop_coords_top_left
 
     def _process_eval_data(self, item):
@@ -433,9 +434,9 @@ class FLUXPairedMultiIPDataset(Dataset):
         predefined_scales=[
             # w    h
             (320, 256),
-            (384, 256),        
+            (384, 256),
             (320, 320),
-            (256, 320),        
+            (256, 320),
             (256, 384),
         ]
         raw_image1, ref_crop_coords_top_left1 = self._process_image_varlen(img1, predefined_scales)
@@ -448,7 +449,7 @@ class FLUXPairedMultiIPDataset(Dataset):
             ## 存图片 ##
             save_concat_img = self._horizontal_concat([raw_image1, raw_image2])
             # 创建一个可以在图像上绘图的对象
-            draw = ImageDraw.Draw(save_concat_img) 
+            draw = ImageDraw.Draw(save_concat_img)
             # 选择字体和大小
             font = ImageFont.truetype("DejaVuSans.ttf", 10)
 
@@ -456,8 +457,8 @@ class FLUXPairedMultiIPDataset(Dataset):
             draw.text((8,8), txt1, font=font, fill=(255, 0, 0))
             os.makedirs(self.args.output_dir, exist_ok=True)
             save_concat_img.save(os.path.join(self.args.output_dir, f"ref_{index}.png"))
-            ## 存图片 ##    
-        
+            ## 存图片 ##
+
         return {
             "img1_path": img1,
             "txt": txt1,
@@ -472,7 +473,7 @@ class FLUXPairedMultiIPDataset(Dataset):
             return self._process_eval_data(self.data[idx])
         else:
             raise NotImplementedError
-        
+
     def __len__(self):
         return len(self.data)
 
@@ -495,7 +496,5 @@ def get_flux_paired_multiip_eval_loader(args):
         pin_memory=True)
 
     eval_dataloader_iter = iter(eval_dataloader)
-
-    # print(f"[RANK:{args.rank}] Dataset loaded.")
 
     return eval_dataloader, eval_dataloader_iter
