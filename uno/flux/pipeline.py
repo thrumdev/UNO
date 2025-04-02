@@ -233,14 +233,14 @@ class UNOPipeline:
         img = self(prompt=prompt, width=width, height=height, guidance=guidance,
                    num_steps=num_steps, seed=seed, ref_imgs=ref_imgs,**kargs)
 
-        filename = f"output/gradio/{seed}_{prompt[:20]}.jpg"
+        filename = f"output/gradio/{seed}_{prompt[:20]}.png"
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         exif_data = Image.Exif()
         exif_data[ExifTags.Base.Make] = "UNO"
         exif_data[ExifTags.Base.Model] = self.model_type
         info = f"{prompt=}, {seed=}, {width=}, {height=}, {guidance=}, {num_steps=}"
         exif_data[ExifTags.Base.ImageDescription] = info
-        img.save(filename, format="jpeg", exif=exif_data, quality=95, subsampling=0)
+        img.save(filename, format="png", exif=exif_data)
         return img, filename
 
     def forward(
