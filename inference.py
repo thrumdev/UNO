@@ -1,7 +1,9 @@
-import argparse
 import os
+import dataclasses
+from typing import Literal
 
 from accelerate import Accelerator
+from transformers import HfArgumentParser
 from PIL import Image
 import json
 import itertools
@@ -24,38 +26,28 @@ def horizontal_concat(images):
 
     return new_im
 
-def create_argparser():
-    parser = argparse.ArgumentParser()
+@dataclasses.dataclass
+class InferenceArgs:
+    prompt: str | None = None
+    image_paths: list[str] | None = None
+    eval_json_path: str | None = None
+    offload: bool = False
+    num_images_per_prompt: int = 1
+    model_type: Literal["flux-dev", "flux-dev-fp8", "flux-schnell"] = "flux-dev"
+    width: int = 512
+    height: int = 512
+    ref_size: int = 512
+    num_steps: int = 25
+    guidance: float = 4
+    seed: int = 42
+    save_path: str = "output/inference"
+    only_lora: bool = False
+    concat_refs: bool = False
+    lora_rank: int = 512
+    data_resolution: int = 512
+    pe: Literal["d", "c", "s", "n"] = "d"
 
-    parser.add_argument("--prompt", type=str, help="The input text prompt")
-    parser.add_argument("--image_paths", type=str, help="The input image path", nargs='*')
-    parser.add_argument("--eval_json_path", type=str, help="The json path for evaluation dataset")
-    parser.add_argument("--offload", action='store_true', help="Offload model to CPU when not in use")
-    parser.add_argument("--num_images_per_prompt", type=int, default=1, help="The number of images for per prompt")
-    parser.add_argument(
-        "--model_type", type=str, default="flux-dev",
-        choices=("flux-dev", "flux-dev-fp8", "flux-schnell"),
-        help="Model type to use (flux-dev, flux-dev-fp8, flux-schnell)"
-    )
-
-    parser.add_argument("--width", type=int, default=512, help="The width for generated image")
-    parser.add_argument("--height", type=int, default=512, help="The height for generated image")
-    parser.add_argument("--ref_size", type=int, default=512, help="The longest side size for ref image")
-    parser.add_argument("--num_steps", type=int, default=25, help="The num_steps for diffusion process")
-    parser.add_argument("--guidance", type=float, default=4, help="The guidance for diffusion process")
-    parser.add_argument("--seed", type=int, default=42, help="A seed for reproducible inference")
-    parser.add_argument("--save_path", type=str, default='output/inference', help="Path to save")
-    parser.add_argument("--eval_batch_size", type=int, default=1)
-    parser.add_argument(
-        "--only_lora", action='store_true', help="Load lora model", default=False
-    )  # TODO 看看这个和下面那个参数
-    parser.add_argument("--concat_refs", action='store_true', help="Concat ref in the result", default=False)
-    parser.add_argument("--lora_rank", type=int, default=512)
-    parser.add_argument("--data_resolution", type=int, default=512)
-    parser.add_argument("--pe", type=str, default='d')
-    return parser
-
-def main(args):
+def main(args: InferenceArgs):
     accelerator = Accelerator()
 
     pipeline = UNOPipeline(
@@ -104,5 +96,6 @@ def main(args):
         image_gen.save(os.path.join(args.save_path, f"{i}_{j}.png"))
 
 if __name__ == "__main__":
-    args = create_argparser().parse_args()
+    parser = HfArgumentParser([InferenceArgs])
+    args = parser.parse_args_into_dataclasses()[0]
     main(args)

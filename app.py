@@ -1,5 +1,7 @@
-import torch
+import dataclasses
+
 import gradio as gr
+import torch
 
 from uno.flux.pipeline import UNOPipeline
 
@@ -66,15 +68,23 @@ def create_demo(
     return demo
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Flux")
-    parser.add_argument("--name", type=str, default="flux-dev", help="Base Model name")
-    parser.add_argument(
-        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use"
-    )
-    parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
-    parser.add_argument("--port", type=int, default=7860, help="Port to use for the Gradio app")
-    args = parser.parse_args()
+    from typing import Literal
+
+    from transformers import HfArgumentParser
+
+    @dataclasses.dataclass
+    class AppArgs:
+        name: Literal["flux-dev", "flux-dev-fp8", "flux-schnell"] = "flux-dev"
+        device: Literal["cuda", "cpu"] = "cuda" if torch.cuda.is_available() else "cpu"
+        offload: bool = dataclasses.field(
+            default=False,
+            metadata={"help": "If True, sequantial offload the models(ae, dit, text encoder) to CPU if not used."}
+        )
+        port: int = 7860
+
+    parser = HfArgumentParser([AppArgs])
+    args_tuple = parser.parse_args_into_dataclasses() # type: tuple[AppArgs]
+    args = args_tuple[0]
 
     demo = create_demo(args.name, args.device, args.offload)
     demo.launch(server_port=args.port)
