@@ -259,38 +259,16 @@ def load_flow_model_only_lora(
     ):
         ckpt_path = hf_hub_download(configs[name].repo_id, configs[name].repo_flow.replace("sft", "safetensors"))
     
-    if hf_download and False: # TODO: change to huggingface space when uploading
-        lora_ckpt_path = hf_hub_download("bytedance/uno", "dit_lora.safetensors")
+    if hf_download:
+        lora_ckpt_path = hf_hub_download("bytedance-research/UNO", "dit_lora.safetensors")
     else:
-        lora_ckpt_path = os.environ.get("LORA", "./output/dit_lora.safetensors") # TODO turn to None when uploaded
+        lora_ckpt_path = os.environ.get("LORA", None)
 
-    print(f'>>>>>>>>{configs[name].params}')
     with torch.device("meta" if ckpt_path is not None else device):
         model = Flux(configs[name].params)
 
-    lora_attn_procs = {}
 
-    double_blocks_idx = list(range(19))
-    single_blocks_idx = list(range(38))
-
-    with torch.device("meta" if lora_ckpt_path is not None else device):
-        for name, attn_processor in  model.attn_processors.items():
-            match = re.search(r'\.(\d+)\.', name)
-            if match:
-                layer_index = int(match.group(1))
-
-            if name.startswith("double_blocks") and layer_index in double_blocks_idx:
-                print("setting LoRA Processor for", name)
-                lora_attn_procs[name] = DoubleStreamBlockLoraProcessor(dim=3072, rank=lora_rank)
-            elif name.startswith("single_blocks") and layer_index in single_blocks_idx:
-                print("setting LoRA Processor for", name)
-                lora_attn_procs[name] = SingleStreamBlockLoraProcessor(
-                    dim=3072, rank=lora_rank
-                    )
-            else:
-                lora_attn_procs[name] = attn_processor
-
-    model.set_attn_processor(lora_attn_procs)  
+    model = set_lora(model, lora_rank, device="meta" if lora_ckpt_path is not None else device)
 
     if ckpt_path is not None:
         print("Loading lora")
@@ -314,6 +292,35 @@ def load_flow_model_only_lora(
             model.to(str(device))
         print_load_warning(missing, unexpected)
     return model
+
+
+def set_lora(
+    model: Flux,
+    lora_rank: int,
+    double_blocks_indices: list[int] | None = None,
+    single_blocks_indices: list[int] | None = None,
+    device: str | torch.device = "cpu",
+) -> Flux:
+    double_blocks_indices = list(range(model.params.depth)) if double_blocks_indices is None else double_blocks_indices
+    single_blocks_indices = list(range(model.params.depth_single_blocks)) if single_blocks_indices is None \
+                            else single_blocks_indices
+    
+    lora_attn_procs = {}
+    with torch.device(device):
+        for name, attn_processor in  model.attn_processors.items():
+            match = re.search(r'\.(\d+)\.', name)
+            if match:
+                layer_index = int(match.group(1))
+
+            if name.startswith("double_blocks") and layer_index in double_blocks_indices:
+                lora_attn_procs[name] = DoubleStreamBlockLoraProcessor(dim=model.params.hidden_size, rank=lora_rank)
+            elif name.startswith("single_blocks") and layer_index in single_blocks_indices:
+                lora_attn_procs[name] = SingleStreamBlockLoraProcessor(dim=model.params.hidden_size, rank=lora_rank)
+            else:
+                lora_attn_procs[name] = attn_processor
+    model.set_attn_processor(lora_attn_procs)
+    return model
+
 
 def load_flow_model_quintized(name: str, device: str | torch.device = "cuda", hf_download: bool = True):
     # Loading Flux

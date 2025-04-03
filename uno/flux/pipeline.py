@@ -1,10 +1,10 @@
 import os
+from typing import Literal
 
 import torch
 from einops import rearrange
 from PIL import ExifTags, Image
-from torchvision.transforms import Compose, Normalize, RandomResizedCrop, ToTensor
-from torchvision.transforms.functional import InterpolationMode
+import torchvision.transforms.functional as TVF
 
 from uno.flux.modules.layers import (
     DoubleStreamBlockLoraProcessor,
@@ -36,7 +36,7 @@ def find_nearest_scale(image_h, image_w, predefined_scales):
     """
     # 计算输入图片的长宽比
     image_ratio = image_h / image_w
-    
+
     # 初始化变量以存储最小差异和最近的尺度
     min_diff = float('inf')
     nearest_scale = None
@@ -45,34 +45,14 @@ def find_nearest_scale(image_h, image_w, predefined_scales):
     for scale_h, scale_w in predefined_scales:
         predefined_ratio = scale_h / scale_w
         diff = abs(predefined_ratio - image_ratio)
-        
+
         if diff < min_diff:
             min_diff = diff
             nearest_scale = (scale_h, scale_w)
-    
+
     return nearest_scale
 
-def preprocess_ref(raw_image, predefined_scales):
-    if predefined_scales is not None:
-        image_w, image_h = raw_image.size
-        # 为了varlen inference，把图片按bucket进行resize
-        bucket_h, bucket_w = find_nearest_scale(image_h, image_w, predefined_scales)
-
-        aspect_ratio = bucket_w / bucket_h
-        resize = RandomResizedCrop(
-                                    size=(bucket_h, bucket_w),  # Crop to target width height
-                                    scale=(1, 1),  # Do not scale.
-                                    ratio=(aspect_ratio, aspect_ratio),  # Keep target aspect ratio.
-                                    interpolation=InterpolationMode.LANCZOS  # Use LANCZO for downsample.
-                                )
-        crop_top_coord, crop_left_coord, _, _ = resize.get_params(raw_image, scale=(1, 1), ratio=(
-                            aspect_ratio, aspect_ratio))
-        crop_coords_top_left = torch.tensor([crop_top_coord, crop_left_coord])
-        raw_image = resize(raw_image)
-    raw_image = raw_image.convert("RGB") 
-    return raw_image
-
-def preprocess_ref(raw_image, long_size):
+def preprocess_ref(raw_image: Image.Image, long_size: int = 512):
     # 获取原始图像的宽度和高度
     image_w, image_h = raw_image.size
 
@@ -119,13 +99,13 @@ class UNOPipeline:
         self.t5 = load_t5(self.device, max_length=512)
         self.ae = load_ae(model_type, device="cpu" if offload else self.device)
         if "fp8" in model_type:
-            self.model = load_flow_model_quintized(model_type, device="cpu" if offload else self.device) 
+            self.model = load_flow_model_quintized(model_type, device="cpu" if offload else self.device)
         elif only_lora:
             self.model = load_flow_model_only_lora(
                 model_type, device="cpu" if offload else self.device, lora_rank=lora_rank
             )
         else:
-            self.model = load_flow_model(model_type, device="cpu" if offload else self.device)  
+            self.model = load_flow_model(model_type, device="cpu" if offload else self.device)
 
 
     def load_ckpt(self, ckpt_path):
@@ -213,54 +193,54 @@ class UNOPipeline:
         )
 
     @torch.inference_mode()
-    def gradio_generate(self, prompt, width, height, guidance,
-                        num_steps, seed,ref_width, image_prompt1,
-                        image_prompt2,image_prompt3,image_prompt4,**kargs):
-        ref_imgs = [image_prompt1,image_prompt2,image_prompt3,image_prompt4]
+    def gradio_generate(
+        self,
+        prompt: str,
+        width: int,
+        height: int,
+        guidance: float,
+        num_steps: int,
+        seed: int,
+        ref_long_side: int,
+        image_prompt1: Image.Image,
+        image_prompt2: Image.Image,
+        image_prompt3: Image.Image,
+        image_prompt4: Image.Image,
+    ):
+        ref_imgs = [image_prompt1, image_prompt2, image_prompt3, image_prompt4]
         ref_imgs = [img for img in ref_imgs if isinstance(img, Image.Image)]
-        ref_imgs = [preprocess_ref(img, ref_width) for img in ref_imgs]
-        transform = Compose([
-                    ToTensor(),
-                    Normalize([0.5], [0.5]),
-                ])    
-        ref_imgs = [transform(each) for each in ref_imgs]            
-        kargs['multi_ip'] = True    
+        ref_imgs = [preprocess_ref(img, ref_long_side) for img in ref_imgs]
 
-        seed = int(seed)
-        if seed == -1:
-            seed = torch.Generator(device="cpu").seed()
+        seed = seed if seed != -1 else torch.randint(0, 10 ** 8, (1,)).item()
 
         img = self(prompt=prompt, width=width, height=height, guidance=guidance,
-                   num_steps=num_steps, seed=seed, ref_imgs=ref_imgs,**kargs)
+                   num_steps=num_steps, seed=seed, ref_imgs=ref_imgs)
 
-        filename = f"output/gradio/{seed}_{prompt[:20]}.jpg"
+        filename = f"output/gradio/{seed}_{prompt[:20]}.png"
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         exif_data = Image.Exif()
         exif_data[ExifTags.Base.Make] = "UNO"
         exif_data[ExifTags.Base.Model] = self.model_type
         info = f"{prompt=}, {seed=}, {width=}, {height=}, {guidance=}, {num_steps=}"
         exif_data[ExifTags.Base.ImageDescription] = info
-        img.save(filename, format="jpeg", exif=exif_data, quality=95, subsampling=0)
+        img.save(filename, format="png", exif=exif_data)
         return img, filename
 
+    @torch.inference_mode
     def forward(
         self,
-        prompt,
-        width,
-        height,
-        guidance,
-        num_steps,
-        seed,
-        timestep_to_start_cfg = 1e5,
-        true_gs = 3.5,
-        neg_prompt = "",
-        ref_imgs = None,
-        batch = None,
-        **kargs
+        prompt: str,
+        width: int,
+        height: int,
+        guidance: float,
+        num_steps: int,
+        seed: int,
+        timestep_to_start_cfg: int = 1e5,  # TODO 没用，删除
+        true_gs: float = 3.5,
+        neg_prompt: str = "",
+        ref_imgs: list[Image.Image] | None = None,
+        pe: Literal['d', 'h', 'w', 'o'] = 'd',
     ):
-        single_ip = kargs.get("single_ip", False)
-        multi_ip = kargs.get("multi_ip", False)
-        pe = kargs.get("pe", "d")
         x = get_noise(
             1, height, width, device=self.device,
             dtype=torch.bfloat16, seed=seed
@@ -270,83 +250,52 @@ class UNOPipeline:
             (width // 8) * (height // 8) // (16 * 16),
             shift=True,
         )
-        torch.manual_seed(seed)
-        with torch.no_grad():
+        if self.offload:
+            self.ae.encoder = self.ae.encoder.to(self.device)
+        x_1_refs = [
+            self.ae.encode(
+                (TVF.to_tensor(ref_img) * 2.0 - 1.0) 
+                .unsqueeze(0).to(self.device, torch.float32)
+            ).to(torch.bfloat16)
+            for ref_img in ref_imgs
+        ]
+
+        if self.offload:
+            self.ae.encoder = self.offload_model_to_cpu(self.ae.encoder)
             self.t5, self.clip = self.t5.to(self.device), self.clip.to(self.device)
-            self.model, self.ae = self.model.to(self.device),  self.ae.to(self.device)
-            if not single_ip and not multi_ip:
-                inp_cond = prepare(t5=self.t5, clip=self.clip, img=x, prompt=prompt, pe=pe)
-                neg_inp_cond = prepare(t5=self.t5, clip=self.clip, img=x, prompt=neg_prompt, pe=pe)
-            elif single_ip: 
-                ref_img = ref_imgs
-                prompt = prompt
-                x_1_ref = self.ae.encode(ref_img.unsqueeze(0).to(self.device).to(torch.float32))
-                inp_cond = prepare(
-                    t5=self.t5, clip=self.clip,
-                    img=x, prompt=prompt, ref_img=x_1_ref.to(torch.bfloat16), pe=pe
-                )   
-                neg_inp_cond = prepare(
-                    t5=self.t5, clip=self.clip,
-                    img=x, prompt=neg_prompt, ref_img=x_1_ref.to(torch.bfloat16), pe=pe
-                )
-            elif multi_ip:
-                batch = kargs.get("batch", None)
-                try:
-                    ref_img1 = batch["ref_img1"]
-                    ref_img2 = batch["ref_img2"]
-                    prompt = batch["txt"]
-                    x_1_ref = self.ae.encode(ref_img1.to(self.device).to(torch.float32))
-                    x_2_ref = self.ae.encode(ref_img2.to(self.device).to(torch.float32))
-                    inp_cond = prepare_multi_ip(
-                        t5=self.t5, clip=self.clip,
-                        img=x,
-                        prompt=prompt, ref_imgs=(x_1_ref.to(torch.bfloat16), x_2_ref.to(torch.bfloat16)), pe=pe
-                    )
-                    neg_inp_cond = prepare_multi_ip(
-                        t5=self.t5, clip=self.clip,
-                        img=x,
-                        prompt=neg_prompt, ref_imgs=(x_1_ref.to(torch.bfloat16), x_2_ref.to(torch.bfloat16)), pe=pe
-                    )            
-                except:
-                    print('start gradio inference')         
-                    x_1_refs = [
-                        self.ae.encode(ref_img.unsqueeze(0).to(self.device).to(torch.float32))
-                        for ref_img in ref_imgs
-                    ]
-                    x_1_refs = [each.to(torch.bfloat16) for each in x_1_refs]
-                    inp_cond = prepare_multi_ip(
-                        t5=self.t5, clip=self.clip,
-                        img=x,
-                        prompt=prompt, ref_imgs=x_1_refs, pe=pe
-                    )
-                    neg_inp_cond = prepare_multi_ip(
-                        t5=self.t5, clip=self.clip,
-                        img=x,
-                        prompt=neg_prompt, ref_imgs=x_1_refs, pe=pe
-                    )
-            if self.offload:
-                self.offload_model_to_cpu(self.t5, self.clip)
-                self.model = self.model.to(self.device)
+        inp_cond = prepare_multi_ip(
+            t5=self.t5, clip=self.clip,
+            img=x,
+            prompt=prompt, ref_imgs=x_1_refs, pe=pe
+        )
+        neg_inp_cond = prepare_multi_ip(
+            t5=self.t5, clip=self.clip,
+            img=x,
+            prompt=neg_prompt, ref_imgs=x_1_refs, pe=pe
+        )
 
-            x = denoise(
-                self.model,
-                **inp_cond,
-                timesteps=timesteps,
-                guidance=guidance,
-                timestep_to_start_cfg=timestep_to_start_cfg,
-                neg_txt=neg_inp_cond['txt'],
-                neg_txt_ids=neg_inp_cond['txt_ids'],
-                neg_vec=neg_inp_cond['vec'],
-                true_gs=true_gs,
-                **kargs
-            )
+        if self.offload:
+            self.offload_model_to_cpu(self.t5, self.clip)
+            self.model = self.model.to(self.device)
 
-            if self.offload:
-                self.offload_model_to_cpu(self.model)
-                self.ae.decoder.to(x.device)
-            x = unpack(x.float(), height, width)
-            x = self.ae.decode(x)
-            self.offload_model_to_cpu(self.ae.decoder)
+        x = denoise(
+            self.model,
+            **inp_cond,
+            timesteps=timesteps,
+            guidance=guidance,
+            timestep_to_start_cfg=timestep_to_start_cfg,
+            neg_txt=neg_inp_cond['txt'],
+            neg_txt_ids=neg_inp_cond['txt_ids'],
+            neg_vec=neg_inp_cond['vec'],
+            true_gs=true_gs,
+        )
+
+        if self.offload:
+            self.offload_model_to_cpu(self.model)
+            self.ae.decoder.to(x.device)
+        x = unpack(x.float(), height, width)
+        x = self.ae.decode(x)
+        self.offload_model_to_cpu(self.ae.decoder)
 
         x1 = x.clamp(-1, 1)
         x1 = rearrange(x1[-1], "c h w -> h w c")

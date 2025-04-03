@@ -81,7 +81,7 @@ class Flux(nn.Module):
     @property
     def attn_processors(self):
         # set recursively
-        processors = {}
+        processors = {}  # type: dict[str, nn.Module]
 
         def fn_recursive_add_processors(name: str, module: torch.nn.Module, processors):
             if hasattr(module, "set_processor"):
@@ -194,9 +194,7 @@ class Flux(nn.Module):
             if self.training and self.gradient_checkpointing:
                 img = torch.utils.checkpoint.checkpoint(
                     block,
-                    img,
-                    vec,
-                    pe,
+                    img, vec=vec, pe=pe,
                     use_reentrant=False
                 )
             else:
