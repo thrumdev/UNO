@@ -45,7 +45,7 @@ class InferenceArgs:
     concat_refs: bool = False
     lora_rank: int = 512
     data_resolution: int = 512
-    pe: Literal["d", "c", "s", "n"] = "d"
+    pe: Literal['d', 'h', 'w', 'o'] = 'd'
 
 def main(args: InferenceArgs):
     accelerator = Accelerator()

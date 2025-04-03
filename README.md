@@ -43,7 +43,7 @@ python app.py
 ```
 
 
-### Inference Scripts
+### Inference
 
 - Optional prepreration: If you want to test the inference on dreambench at the first time, you should clone the submodule `dreambench` to download the dataset.
 
@@ -56,14 +56,20 @@ git submodule update --init
 python inference.py
 ```
 
+### Training
+
+```bash
+accelerate launch train.py
+```
+
 
 ## 🔥Updates
 We will open source this project as soon as possible. Thank you for your patience and support! 🌟
 - [x] Release github repo.
-- [ ] Release arXiv paper.
-- [ ] Release inference code(Coming soon).
+- [x] Release arXiv paper.
+- [x] Release inference code(Coming soon).
 - [ ] Release model checkpoints.
-- [ ] Release training code.
+- [x] Release training code.
 
 ##  Citation
 If UNO is helpful, please help to ⭐ the repo.

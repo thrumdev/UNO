@@ -28,7 +28,7 @@ def create_demo(
                     with gr.Column():
                         ref_long_side = gr.Slider(128, 512, 512, step=16, label="Long side of Ref Images")
                     with gr.Column():
-                        gr.Markdown("📌 The recommended ref scale is related to the ref img number.\n")
+                        gr.Markdown("📌 **The recommended ref scale** is related to the ref img number.\n")
                         gr.Markdown("   1->512 / 2->320 / 3...n->256")
 
                 with gr.Row():
