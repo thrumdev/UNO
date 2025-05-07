@@ -175,6 +175,81 @@ def prepare_multi_ip(
         "vec": vec.to(img.device),
     }
 
+def prepare_img_encoding(img: Tensor):
+    bs, c, h, w = img.shape
+
+    img = rearrange(img, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=2, pw=2)
+    if img.shape[0] == 1 and bs > 1:
+        img = repeat(img, "1 ... -> bs ...", bs=bs)
+
+    img_ids = torch.zeros(h // 2, w // 2, 3)
+    img_ids[..., 1] = img_ids[..., 1] + torch.arange(h // 2)[:, None]
+    img_ids[..., 2] = img_ids[..., 2] + torch.arange(w // 2)[None, :]
+    img_ids = repeat(img_ids, "h w c -> b (h w) c", b=bs)
+    img_ids = img_ids.to(img.device)
+
+    return (img, img_ids)
+
+def prepare_ref_img_encoding(
+    img: Tensor, 
+    ref_imgs: list[Tensor], 
+    device,
+    pe: Literal['d', 'h', 'w', 'o'] = 'd'
+):
+    bs, c, h, w = img.shape
+
+    ref_img_ids = []
+    ref_imgs_list = []
+    pe_shift_w, pe_shift_h = w // 2, h // 2
+    for ref_img in ref_imgs:
+        _, _, ref_h1, ref_w1 = ref_img.shape
+        ref_img = rearrange(ref_img, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=2, pw=2)
+        if ref_img.shape[0] == 1 and bs > 1:
+            ref_img = repeat(ref_img, "1 ... -> bs ...", bs=bs)
+        ref_img_ids1 = torch.zeros(ref_h1 // 2, ref_w1 // 2, 3)
+        # img id分别在宽高偏移各自最大值
+        h_offset = pe_shift_h if pe in {'d', 'h'} else 0
+        w_offset = pe_shift_w if pe in {'d', 'w'} else 0
+        ref_img_ids1[..., 1] = ref_img_ids1[..., 1] + torch.arange(ref_h1 // 2)[:, None] + h_offset
+        ref_img_ids1[..., 2] = ref_img_ids1[..., 2] + torch.arange(ref_w1 // 2)[None, :] + w_offset
+        ref_img_ids1 = repeat(ref_img_ids1, "h w c -> b (h w) c", b=bs)
+        ref_img_ids.append(ref_img_ids1)
+        ref_imgs_list.append(ref_img)
+
+        # 更新pe shift
+        pe_shift_h += ref_h1 // 2
+        pe_shift_w += ref_w1 // 2
+
+    ref_img = tuple(ref_imgs_list),
+    ref_img_ids = [ref_img_id.to(device) for ref_img_id in ref_img_ids],
+    return (ref_img, ref_img_ids)
+
+def initial_prompt_encoding(
+    t5: HFEmbedder,
+    clip: HFEmbedder,
+    prompt: str | list[str],
+):
+    if isinstance(prompt, str):
+        prompt = [prompt]
+    txt = t5(prompt)
+    vec = clip(prompt)
+
+    return (txt, vec)
+
+def final_prompt_encoding(
+    bs: int,
+    txt: Tensor,
+    y: Tensor,
+):
+    if txt.shape[0] == 1 and bs > 1:
+        txt = repeat(txt, "1 ... -> bs ...", bs=bs)
+
+    txt_ids = torch.zeros(bs, txt.shape[1], 3)
+
+    if y.shape[0] == 1 and bs > 1:
+        y = repeat(y, "1 ... -> bs ...", bs=bs)
+
+    return (txt, txt_ids, y)
 
 def time_shift(mu: float, sigma: float, t: Tensor):
     return math.exp(mu) / (math.exp(mu) + (1 / t - 1) ** sigma)
