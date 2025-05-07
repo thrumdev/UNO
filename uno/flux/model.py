@@ -187,33 +187,16 @@ class Flux(nn.Module):
         pe = self.pe_embedder(ids)
         
         for index_block, block in enumerate(self.double_blocks):
-            if self.training and self.gradient_checkpointing:
-                img, txt = torch.utils.checkpoint.checkpoint(
-                    block,
-                    img=img, 
-                    txt=txt, 
-                    vec=vec, 
-                    pe=pe, 
-                    use_reentrant=False,
-                )
-            else:
-                img, txt = block(
-                    img=img, 
-                    txt=txt, 
-                    vec=vec, 
-                    pe=pe
-                )
+            img, txt = block(
+                img=img, 
+                txt=txt, 
+                vec=vec, 
+                pe=pe
+            )
 
         img = torch.cat((txt, img), 1)
         for block in self.single_blocks:
-            if self.training and self.gradient_checkpointing:
-                img = torch.utils.checkpoint.checkpoint(
-                    block,
-                    img, vec=vec, pe=pe,
-                    use_reentrant=False
-                )
-            else:
-                img = block(img, vec=vec, pe=pe)
+            img = block(img, vec=vec, pe=pe)
         img = img[:, txt.shape[1] :, ...]
         # index img
         img = img[:, :img_end, ...]
