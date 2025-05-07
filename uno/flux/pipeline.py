@@ -27,7 +27,7 @@ from uno.flux.modules.layers import (
     SingleStreamBlockLoraProcessor,
     SingleStreamBlockProcessor,
 )
-from uno.flux.sampling import denoise, get_noise, get_schedule, prepare_multi_ip, unpack
+from uno.flux.sampling import denoise, get_noise, get_schedule, prepare_multi_ip
 from uno.flux.util import (
     get_lora_rank,
     load_ae,

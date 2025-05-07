@@ -15,10 +15,13 @@
 
 from dataclasses import dataclass
 
+import comfy
 import torch
 from torch import Tensor, nn
+from einops import rearrange
 
 from .modules.layers import DoubleStreamBlock, EmbedND, LastLayer, MLPEmbedder, SingleStreamBlock, timestep_embedding
+from .sampling import prepare_img_encoding, prepare_ref_img_encoding, final_prompt_encoding
 
 
 @dataclass
@@ -146,7 +149,7 @@ class Flux(nn.Module):
         for name, module in self.named_children():
             fn_recursive_attn_processor(name, module, processor)
 
-    def forward(
+    def forward_orig(
         self,
         img: Tensor,
         img_ids: Tensor,
@@ -156,7 +159,9 @@ class Flux(nn.Module):
         y: Tensor,
         guidance: Tensor | None = None,
         ref_img: Tensor | None = None, 
-        ref_img_ids: Tensor | None = None, 
+        ref_img_ids: Tensor | None = None,
+        transformer_options={},
+        attn_mask: Tensor = None, # TODO: use this
     ) -> Tensor:
         if img.ndim != 3 or txt.ndim != 3:
             raise ValueError("Input img and txt tensors must have 3 dimensions.")
@@ -186,6 +191,7 @@ class Flux(nn.Module):
                 ids = torch.cat((ids, ref_img_ids), dim=1)
         pe = self.pe_embedder(ids)
         
+        ## TODO: handle patches from transformer_options, if any
         for index_block, block in enumerate(self.double_blocks):
             img, txt = block(
                 img=img, 
@@ -195,6 +201,8 @@ class Flux(nn.Module):
             )
 
         img = torch.cat((txt, img), 1)
+
+        ## TODO: handle patches from transformer_options, if any
         for block in self.single_blocks:
             img = block(img, vec=vec, pe=pe)
         img = img[:, txt.shape[1] :, ...]
@@ -203,3 +211,46 @@ class Flux(nn.Module):
 
         img = self.final_layer(img, vec)  # (N, T, patch_size ** 2 * out_channels)
         return img
+
+    def forward(
+        self,
+        x: Tensor,
+        timestep: Tensor,
+        context: Tensor,
+        y: Tensor,
+        guidance=None,
+        transformer_options={},
+        attention_mask=None,
+        ref_imgs: list[Tensor] | None = None,
+        **kwargs,
+    ) -> Tensor:
+        bs, c, h, w = x.shape
+        img, img_ids = prepare_img_encoding(x)
+        ref_img, ref_img_ids = prepare_ref_img_encoding(img, ref_imgs, x.device)
+        txt, txt_ids, y = final_prompt_encoding(bs, context, y)
+
+        x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
+
+        txt_ids = torch.zeros((bs, context.shape[1], 3), device=x.device, dtype=x.dtype)
+        out = self.forward_orig(
+            img, 
+            img_ids, 
+            txt, 
+            txt_ids, 
+            timestep, 
+            y, 
+            guidance=guidance,
+            ref_img=ref_img,
+            ref_img_ids=ref_img_ids,
+            transformer_options=transformer_options,
+            attn_mask=attention_mask,
+        )
+
+        return rearrange(
+            out,
+            "b (h w) (c ph pw) -> b c (h ph) (w pw)",
+            h,
+            w,
+            ph=2,
+            pw=2,
+        )[:, :, :h, :w]
