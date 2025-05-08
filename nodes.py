@@ -32,7 +32,7 @@ def print_sd_weightnames(sd, name):
 
 # returns a function that, when called, returns the given model
 def make_fake_model_builder(model: FluxModel):
-    def return_model(unet_config, device, operations):
+    def return_model(image_model=None, final_layer=True, dtype=None, device=None, operations=None, **kwargs):
         # expected in the adapter.
         model.patch_size = 2
         return model.to(device)
