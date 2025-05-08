@@ -235,10 +235,10 @@ class Flux(nn.Module):
         out = self.forward_orig(
             img, 
             img_ids, 
-            txt, 
-            txt_ids, 
+            txt.to(x.device), 
+            txt_ids.to(x.device), 
             timestep, 
-            y, 
+            y.to(x.device), 
             guidance=guidance,
             ref_img=ref_img,
             ref_img_ids=ref_img_ids,
