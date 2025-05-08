@@ -113,7 +113,8 @@ class UnoFluxModelLoader:
         offload_device = mm.unet_offload_device()
         load_device = mm.get_torch_device()
         model = model.to(offload_device)
-        return comfy.model_patcher.ModelPatcher(model, load_device=load_device, offload_device=offload_device)
+        model = comfy.model_patcher.ModelPatcher(model, load_device=load_device, offload_device=offload_device)
+        return (model,)
 
 class UnoConditioning:
     @classmethod
