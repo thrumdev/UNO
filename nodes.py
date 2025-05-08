@@ -41,10 +41,10 @@ def make_fake_model_builder(model: FluxModel):
 
 class UnoComfyAdapter(comfy.model_base.Flux):
     def __init__(model_config, model: FluxModel, device=None):
-        super().__init__(model_config, comfy.model_base.ModelType.Flux, device, make_fake_model_builder(model))
+        super().__init__(model_config, device=device, unet_model=make_fake_model_builder(model))
 
     def extra_conds(self, **kwargs):
-        out = super().extra_conds()
+        out = super().extra_conds(kwargs)
         out["ref_img"] = kwargs["ref_img"]
         return out
 
