@@ -46,8 +46,10 @@ class UnoComfyAdapter(comfy.model_base.Flux):
 
     def extra_conds(self, **kwargs):
         out = super().extra_conds(**kwargs)
-        out["ref_img"] = kwargs.get("ref_img", None)
-        print(f"returning extra conds not None={out.get('ref_img', None)}")
+        ref_img = kwargs.get("ref_img", None)
+        if ref_img is not None:
+            # kind of a hack but hopefully works.
+            out["ref_img"] = comfy.conds.CONDConstant(ref_img)
         return out
 
 class UnoFluxModelLoader:
