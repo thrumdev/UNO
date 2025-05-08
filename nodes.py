@@ -87,7 +87,7 @@ class UnoFluxModelLoader:
         # instantiate model class, update using lora
         with torch.device("meta"):
             model = FluxModel(uno_util.configs[config_name].params)
-        model = uno_util.set_lora(model, lora_rank, "meta")
+        model = uno_util.set_lora(model, lora_rank, device="meta")
 
         # ensure device and type are consistent across both state dicts. strip out prefix
         if sd:
