@@ -85,6 +85,8 @@ class UnoFluxModelLoader:
 
         assert unet_config is not None
         model_config = comfy.supported_models.Flux(unet_config)
+        print("Created Flux:", type(model_config), hasattr(model_config, "unet_config"))
+
 
         # instantiate model class, update using lora
         with torch.device("meta"):
