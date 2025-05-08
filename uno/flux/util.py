@@ -332,13 +332,18 @@ def set_lora(
     single_blocks_indices = list(range(model.params.depth_single_blocks)) if single_blocks_indices is None \
                             else single_blocks_indices
     
+    assert isinstance(double_blocks_indices, list), f"double_blocks_indices={double_blocks_indices} ({type(double_blocks_indices)})"
+    assert isinstance(single_blocks_indices, list), f"single_blocks_indices={single_blocks_indices} ({type(single_blocks_indices)})"
+
     lora_attn_procs = {}
     with torch.device(device):
         for name, attn_processor in  model.attn_processors.items():
+            print(f"replacing processor for {name}")
             match = re.search(r'\.(\d+)\.', name)
             if match:
                 layer_index = int(match.group(1))
 
+            print(f"  layer={layer_index}")
             if name.startswith("double_blocks") and layer_index in double_blocks_indices:
                 lora_attn_procs[name] = DoubleStreamBlockLoraProcessor(dim=model.params.hidden_size, rank=lora_rank)
             elif name.startswith("single_blocks") and layer_index in single_blocks_indices:
