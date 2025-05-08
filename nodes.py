@@ -35,6 +35,7 @@ def make_fake_model_builder(model: FluxModel):
     def return_model(image_model=None, final_layer=True, dtype=None, device=None, operations=None, **kwargs):
         # expected in the adapter.
         model.patch_size = 2
+        print(f"setting model dtype={dtype}")
         model.dtype = dtype
         return model.to(device)
 

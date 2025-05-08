@@ -224,22 +224,28 @@ class Flux(nn.Module):
         ref_img: list[Tensor] | None = None,
         **kwargs,
     ) -> Tensor:
-        print(f"got ref imgs={ref_img}")
         bs, c, h, w = x.shape
-        img, img_ids = prepare_img_encoding(x)
-        ref_img, ref_img_ids = prepare_ref_img_encoding(x, ref_img, x.device)
-        txt, txt_ids, y = final_prompt_encoding(bs, context, y)
 
         x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
+        img, img_ids = prepare_img_encoding(x)
 
-        txt_ids = torch.zeros((bs, context.shape[1], 3), device=x.device, dtype=x.dtype)
+        if ref_img is not None: 
+            ref_img, ref_img_ids = prepare_ref_img_encoding(x, ref_img)
+            ref_img_ids = [ref_img_id.to(device=x.device, dtype=self.dtype) for ref_img_id in ref_img_ids]
+            ref_img = [r.to(device=x.device, dtype=self.dtype) for r in ref_img]
+
+        if guidance is not None:
+            guidance = guidance.to(device=x.device, dtype=self.dtype)
+
+        txt, txt_ids, y = final_prompt_encoding(bs, context, y)
+
         out = self.forward_orig(
-            img, 
-            img_ids, 
-            txt.to(x.device), 
-            txt_ids.to(x.device), 
-            timestep, 
-            y.to(x.device), 
+            img.to(device=x.device, dtype=self.dtype), 
+            img_ids.to(device=x.device, dtype=self.dtype), 
+            txt.to(device=x.device, dtype=self.dtype), 
+            txt_ids.to(device=x.device, dtype=self.dtype), 
+            timestep.to(device=x.device, dtype=self.dtype), 
+            y.to(device=x.device, dtype=self.dtype), 
             guidance=guidance,
             ref_img=ref_img,
             ref_img_ids=ref_img_ids,
