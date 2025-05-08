@@ -219,7 +219,6 @@ def prepare_ref_img_encoding(
         pe_shift_w += ref_w1 // 2
 
     ref_img = tuple(ref_imgs_list),
-    ref_img_ids = [ref_img_id.to(device) for ref_img_id in ref_img_ids],
     return (ref_img, ref_img_ids)
 
 def initial_prompt_encoding(

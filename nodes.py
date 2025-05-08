@@ -94,7 +94,6 @@ class UnoFluxModelLoader:
         print("Created Flux:", type(model_config), hasattr(model_config, "unet_config"))
         print(f"  unet config len={len(model_config.unet_config)}")
 
-
         # instantiate model class, update using lora
         with torch.device("meta"):
             model = FluxModel(uno_util.configs[config_name].params)
