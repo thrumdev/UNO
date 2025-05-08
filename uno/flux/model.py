@@ -253,11 +253,13 @@ class Flux(nn.Module):
             attn_mask=attention_mask,
         )
 
+        h_len = ((h + (patch_size // 2)) // patch_size)
+        w_len = ((w + (patch_size // 2)) // patch_size)
         return rearrange(
             out,
             "b (h w) (c ph pw) -> b c (h ph) (w pw)",
-            h=h,
-            w=w,
+            h=h_len,
+            w=w_len,
             ph=2,
             pw=2,
         )[:, :, :h, :w]
