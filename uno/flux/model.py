@@ -256,8 +256,8 @@ class Flux(nn.Module):
         return rearrange(
             out,
             "b (h w) (c ph pw) -> b c (h ph) (w pw)",
-            h,
-            w,
+            h=h,
+            w=w,
             ph=2,
             pw=2,
         )[:, :, :h, :w]
