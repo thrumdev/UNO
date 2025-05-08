@@ -218,8 +218,7 @@ def prepare_ref_img_encoding(
         pe_shift_h += ref_h1 // 2
         pe_shift_w += ref_w1 // 2
 
-    ref_img = tuple(ref_imgs_list),
-    return (ref_img, ref_img_ids)
+    return (ref_imgs_list, ref_img_ids)
 
 def initial_prompt_encoding(
     t5: HFEmbedder,
