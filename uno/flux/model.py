@@ -180,6 +180,7 @@ class Flux(nn.Module):
 
         # concat ref_img/img
         img_end = img.shape[1]
+        print(f"img tokens {img_end}")
         if ref_img is not None:
             if isinstance(ref_img, tuple) or isinstance(ref_img, list):
                 img_in = [img] + [self.img_in(ref) for ref in ref_img]
@@ -226,6 +227,8 @@ class Flux(nn.Module):
     ) -> Tensor:
         bs, c, h, w = x.shape
 
+        print(f"x input shape={x.shape}")
+
         x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
         img, img_ids = prepare_img_encoding(x)
 
@@ -253,9 +256,12 @@ class Flux(nn.Module):
             attn_mask=attention_mask,
         )
 
+        print(f"out shape={out.shape}")
+
+
         h_len = ((h + 1) // 2)
         w_len = ((w + 1) // 2)
-        return rearrange(
+        out = rearrange(
             out,
             "b (h w) (c ph pw) -> b c (h ph) (w pw)",
             h=h_len,
@@ -263,3 +269,7 @@ class Flux(nn.Module):
             ph=2,
             pw=2,
         )[:, :, :h, :w]
+
+        print(f"rearranged out shape={out.shape}")
+        return out
+
