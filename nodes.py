@@ -8,6 +8,28 @@ from .uno.flux import util as uno_util
 from .uno.flux.model import Flux as FluxModel
 
 
+def print_sd_weightnames(sd, name):
+    print(f"finding weight names for {name}")
+    for k in sd:
+        if "double_block" in k:
+            print(f"Double block key: {k}")
+            break
+
+    for k in sd:
+        if "single_block" in k:
+            print(f"single block key: {k}")
+            break
+
+    for k in sd:
+        if "img_in" in k:
+            print(f"img_in key: {k}")
+            break
+
+    for k in sd:
+        if "vector_in" in k:
+            print(f"vector_in key: {k}")
+            break
+
 # returns a function that, when called, returns the given model
 def make_fake_model_builder(model: FluxModel):
     def return_model(unet_config, device, operations):
@@ -57,8 +79,14 @@ class UnoFluxModelLoader:
             device = next(iter(sd.values())).device
             uno_sd = {k: v.to(dtype=dtype, device=device) for k, v in uno_sd.items()}
 
+        print(f"flux model has {len(sd)} params of type {str(dtype)}")
+
+        print_sd_weightnames(sd, "fluxmodel")
+        print_sd_weightnames(uno_sd, "uno")
+
         # key-prefix is empty for flux.
         unet_config = comfy.model_detection.detect_unet_config(sd, key_prefix="")
+        assert unet_config is not None
         model_config = comfy.supported_models.Flux(unet_config)
 
         # instantiate model class, update using lora
