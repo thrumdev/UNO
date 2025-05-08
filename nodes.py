@@ -1,11 +1,12 @@
-import folder_paths
-
 import comfy
 import comfy.model_management as mm
+import folder_paths
 import node_helpers
-import uno.flux.util as uno_util
-import uno.flux.model.Flux as FluxModel
 import torch
+
+from .uno.flux import util as uno_util
+from .uno.flux.model import Flux as FluxModel
+
 
 # returns a function that, when called, returns the given model
 def make_fake_model_builder(model: FluxModel):
@@ -29,7 +30,7 @@ class UnoFluxModelLoader:
         return {
             "required": {
                 "model": ("MODEL", {"tooltip": "Flux Checkpoint or LoRA"}),
-                "config_name": (["flux-dev", "flux-dev-fp8", "flux-schnell"]),
+                "config_name": (["flux-dev", "flux-dev-fp8", "flux-schnell"], {"default": "flux-dev"}),
                 "lora_name": (folder_paths.get_filename_list("loras"), {"tooltip": "The name of the UNO LoRA file."}),
                 "lora_rank": ("INT", {"default": 512, "min": 16, "max": 512, "tooltip": "The number of ranks to apply the UNO LoRa atop the Flux weights"}),
             }

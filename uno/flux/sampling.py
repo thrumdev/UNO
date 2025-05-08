@@ -21,7 +21,6 @@ from einops import rearrange, repeat
 from torch import Tensor
 from tqdm import tqdm
 
-from .model import Flux
 from .modules.conditioner import HFEmbedder
 
 
@@ -283,7 +282,7 @@ def get_schedule(
 
 
 def denoise(
-    model: Flux,
+    model: "Flux",
     # model input
     img: Tensor,
     img_ids: Tensor,

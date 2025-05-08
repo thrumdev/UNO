@@ -26,9 +26,9 @@ from safetensors.torch import load_file as load_sft
 from .model import Flux, FluxParams
 from .modules.autoencoder import AutoEncoder, AutoEncoderParams
 from .modules.conditioner import HFEmbedder
+from .modules.layers import DoubleStreamBlockLoraProcessor, SingleStreamBlockLoraProcessor
 
 import re
-from uno.flux.modules.layers import DoubleStreamBlockLoraProcessor, SingleStreamBlockLoraProcessor
 def load_model(ckpt, device='cpu'):
     if ckpt.endswith('safetensors'):
         from safetensors import safe_open
