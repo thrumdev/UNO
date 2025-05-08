@@ -40,7 +40,7 @@ def make_fake_model_builder(model: FluxModel):
     return return_model
 
 class UnoComfyAdapter(comfy.model_base.Flux):
-    def __init__(model_config, model: FluxModel, device=None):
+    def __init__(self, model_config, model: FluxModel, device=None):
         super().__init__(model_config, device=device, unet_model=make_fake_model_builder(model))
 
     def extra_conds(self, **kwargs):
@@ -86,6 +86,7 @@ class UnoFluxModelLoader:
         assert unet_config is not None
         model_config = comfy.supported_models.Flux(unet_config)
         print("Created Flux:", type(model_config), hasattr(model_config, "unet_config"))
+        print(f"  unet config len={len(model_config.unet_config)}")
 
 
         # instantiate model class, update using lora
