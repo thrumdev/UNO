@@ -89,6 +89,7 @@ class UnoFluxModelLoader:
         print_sd_weightnames(uno_sd, "uno")
 
         assert unet_config is not None
+
         model_config = comfy.supported_models.Flux(unet_config)
         print("Created Flux:", type(model_config), hasattr(model_config, "unet_config"))
         print(f"  unet config len={len(model_config.unet_config)}")
@@ -103,6 +104,8 @@ class UnoFluxModelLoader:
         if sd:
             dtype = next(iter(sd.values())).dtype
             device = next(iter(sd.values())).device
+
+            model_config.unet_config['dtype'] = dtype
             uno_sd = {k: v.to(dtype=dtype, device=device) for k, v in uno_sd.items()}
 
         # merge state dicts and load

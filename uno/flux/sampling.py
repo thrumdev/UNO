@@ -192,7 +192,6 @@ def prepare_img_encoding(img: Tensor):
 def prepare_ref_img_encoding(
     img: Tensor, 
     ref_imgs: list[Tensor], 
-    device,
     pe: Literal['d', 'h', 'w', 'o'] = 'd'
 ):
     bs, c, h, w = img.shape
