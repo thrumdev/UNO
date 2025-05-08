@@ -45,7 +45,7 @@ class UnoComfyAdapter(comfy.model_base.Flux):
         super().__init__(model_config, device=device, unet_model=make_fake_model_builder(model))
 
     def extra_conds(self, **kwargs):
-        out = super().extra_conds(kwargs)
+        out = super().extra_conds(**kwargs)
         out["ref_img"] = kwargs["ref_img"]
         return out
 
