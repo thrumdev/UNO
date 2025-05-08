@@ -221,13 +221,13 @@ class Flux(nn.Module):
         guidance=None,
         transformer_options={},
         attention_mask=None,
-        ref_imgs: list[Tensor] | None = None,
+        ref_img: list[Tensor] | None = None,
         **kwargs,
     ) -> Tensor:
-        print(f"got ref imgs={ref_imgs}")
+        print(f"got ref imgs={ref_img}")
         bs, c, h, w = x.shape
         img, img_ids = prepare_img_encoding(x)
-        ref_img, ref_img_ids = prepare_ref_img_encoding(x, ref_imgs, x.device)
+        ref_img, ref_img_ids = prepare_ref_img_encoding(x, ref_img, x.device)
         txt, txt_ids, y = final_prompt_encoding(bs, context, y)
 
         x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
