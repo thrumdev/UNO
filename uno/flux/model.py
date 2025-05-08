@@ -229,7 +229,7 @@ class Flux(nn.Module):
 
         print(f"x input shape={x.shape}")
         print(f"img_in_mean={self.img_in.weight.mean()}, final_mean={self.final_layer.linear.weight.mean()}")
-        print(f"latent mean={latent.mean().item()} std={latent.std().item()}")
+        print(f"latent mean={x.mean().item()} std={x.std().item()}")
         print(f"timestep={timestep} shape={timestep.shape}")
         print(f"conditioning_shape={y.shape}")
         print(f"context_shape={context.shape}")
