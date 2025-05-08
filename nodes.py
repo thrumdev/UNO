@@ -49,7 +49,7 @@ class UnoFluxModelLoader:
 
         # load uno lora safetensors
         lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
-        uno_sd = comfy.util.load_torch_file(lora_path, safe_load=True)
+        uno_sd = comfy.utils.load_torch_file(lora_path, safe_load=True)
 
         # ensure device and type are consistent across both state dicts
         if sd:
