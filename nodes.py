@@ -1,0 +1,122 @@
+import folder_paths
+
+import comfy
+import comfy.model_management as mm
+import node_helpers
+import uno.flux.util as uno_util
+import uno.flux.model.Flux as FluxModel
+import torch
+
+# returns a function that, when called, returns the given model
+def make_fake_model_builder(model: FluxModel):
+    def return_model(unet_config, device, operations):
+        # expected in the adapter.
+        model.patch_size = 2
+        return model.to(device)
+
+class UnoComfyAdapter(comfy.model_base.Flux):
+    def __init__(model_config, model: FluxModel, device=None):
+        super().__init__(model_config, comfy.model_base.ModelType.Flux, device, make_fake_model_builder())
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds()
+        out["ref_img"] = kwargs["ref_img"]
+        return out
+
+class UnoFluxModelLoader:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "model": ("MODEL", {"tooltip": "Flux Checkpoint or LoRA"}),
+                "config_name": (["flux-dev", "flux-dev-fp8", "flux-schnell"]),
+                "lora_name": (folder_paths.get_filename_list("loras"), {"tooltip": "The name of the UNO LoRA file."}),
+                "lora_rank": ("INT", {"default": 512, "min": 16, "max": 512, "tooltip": "The number of ranks to apply the UNO LoRa atop the Flux weights"}),
+            }
+        }
+
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
+    FUNCTION = "loadmodel"
+    CATEGORY = "uno"
+    DESCRIPTION = "Load and apply the UNO LoRa on top of a loaded Flux model."
+
+    def loadmodel(self, model, config_name, lora_name, lora_rank):
+        # extract model state dict. this should apply LoRA patches as well.
+        mm.load_models_gpu([model], force_patch_weights=True)
+        sd = model.model.state_dict_for_saving()
+
+        # load uno lora safetensors
+        lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
+        uno_sd = comfy.util.load_torch_file(lora_path, safe_load=True)
+
+        # ensure device and type are consistent across both state dicts
+        if sd:
+            dtype = next(iter(sd.values())).dtype
+            device = next(iter(sd.values())).device
+            uno_sd = {k: v.to(dtype=dtype, device=device) for k, v in uno_sd.items()}
+
+        # key-prefix is empty for flux.
+        unet_config = comfy.model_detection.detect_unet_config(sd, key_prefix="")
+        model_config = comfy.supported_models.Flux(unet_config)
+
+        # instantiate model class, update using lora
+        with torch.device("meta"):
+            model = FluxModel(uno_util.configs[config_name].params)
+        model = uno_util.set_lora(model, lora_rank, "meta")
+
+        # merge state dicts and load
+        sd.update(uno_sd)
+        missing, unexpected = model.load_state_dict(sd, strict=False, assign=True)
+        print(f"Loaded UNO LoRa. missing_count={len(missing)} unexpected_count={len(unexpected)}")
+        
+        # instantiate adapter.
+        model = UnoComfyAdapter(model_config, model)
+
+        # return model patcher
+        offload_device = mm.unet_offload_device()
+        load_device = mm.get_torch_device()
+        model = model.to(offload_device)
+        return comfy.model_patcher.ModelPatcher(model, load_device=load_device, offload_device=offload_device)
+
+class UnoConditioning:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "conditioning": ("CONDITIONING", ),
+                "vae": ("VAE", { "tooltip": "Flux VAE" })
+            },
+            "optional": {
+                "ref_image_1": ("IMAGE",),
+                "ref_image_2": ("IMAGE",),
+                "ref_image_3": ("IMAGE",),
+                "ref_image_4": ("IMAGE",)
+
+            }
+        }
+
+    RETURN_TYPES = ("CONDITIONING",)
+    FUNCTION = "append"
+    CATEGORY = "uno"
+    DESCRIPTION = "Provide 1-4 reference images for UNO to be VAE encoded and attached to the conditioning"
+
+    def append(self, conditioning, vae, ref_image_1 = None, ref_image_2 = None, ref_image_3 = None, ref_image_4 = None):
+        ref_img = [ref_image_1, ref_image_2, ref_image_3, ref_image_4]
+        ref_img = [r for r in ref_img if r is not None]
+
+        # this line is copied more or less verbatim from VaeEncode
+        ref_img = [vae.encode(pixels[:,:,:,:3]) for pixels in ref_img]
+
+        # set the conditioning map.
+        c = node_helpers.conditioning_set_values(conditioning, {"ref_img": ref_img})
+        return (c, )
+
+NODE_CLASS_MAPPINGS = {
+    "UnoFluxModelLoader": UnoFluxModelLoader,
+    "UnoConditioning": UnoConditioning,
+}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "UnoFluxModelLoader": "UNO Model Loader",
+    "UnoConditioning": "Conditioning for UNO sampling",
+}
