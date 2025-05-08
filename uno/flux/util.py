@@ -26,9 +26,9 @@ from safetensors.torch import load_file as load_sft
 from .model import Flux, FluxParams
 from .modules.autoencoder import AutoEncoder, AutoEncoderParams
 from .modules.conditioner import HFEmbedder
+from .modules.layers import DoubleStreamBlockLoraProcessor, SingleStreamBlockLoraProcessor
 
 import re
-from uno.flux.modules.layers import DoubleStreamBlockLoraProcessor, SingleStreamBlockLoraProcessor
 def load_model(ckpt, device='cpu'):
     if ckpt.endswith('safetensors'):
         from safetensors import safe_open
@@ -332,6 +332,9 @@ def set_lora(
     single_blocks_indices = list(range(model.params.depth_single_blocks)) if single_blocks_indices is None \
                             else single_blocks_indices
     
+    assert isinstance(double_blocks_indices, list), f"double_blocks_indices={double_blocks_indices} ({type(double_blocks_indices)})"
+    assert isinstance(single_blocks_indices, list), f"single_blocks_indices={single_blocks_indices} ({type(single_blocks_indices)})"
+
     lora_attn_procs = {}
     with torch.device(device):
         for name, attn_processor in  model.attn_processors.items():

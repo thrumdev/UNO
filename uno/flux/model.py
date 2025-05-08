@@ -210,6 +210,7 @@ class Flux(nn.Module):
         img = img[:, :img_end, ...]
 
         img = self.final_layer(img, vec)  # (N, T, patch_size ** 2 * out_channels)
+
         return img
 
     def forward(
@@ -221,24 +222,32 @@ class Flux(nn.Module):
         guidance=None,
         transformer_options={},
         attention_mask=None,
-        ref_imgs: list[Tensor] | None = None,
+        ref_img: list[Tensor] | None = None,
         **kwargs,
     ) -> Tensor:
         bs, c, h, w = x.shape
-        img, img_ids = prepare_img_encoding(x)
-        ref_img, ref_img_ids = prepare_ref_img_encoding(img, ref_imgs, x.device)
-        txt, txt_ids, y = final_prompt_encoding(bs, context, y)
 
         x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
+        img, img_ids = prepare_img_encoding(x)
 
-        txt_ids = torch.zeros((bs, context.shape[1], 3), device=x.device, dtype=x.dtype)
+        ref_img_ids = None
+        if ref_img is not None: 
+            ref_img, ref_img_ids = prepare_ref_img_encoding(x, ref_img)
+            ref_img_ids = [ref_img_id.to(device=x.device, dtype=self.dtype) for ref_img_id in ref_img_ids]
+            ref_img = [r.to(device=x.device, dtype=self.dtype) for r in ref_img]
+
+        if guidance is not None:
+            guidance = guidance.to(device=x.device, dtype=self.dtype)
+
+        txt, txt_ids, y = final_prompt_encoding(bs, context, y)
+
         out = self.forward_orig(
-            img, 
-            img_ids, 
-            txt.to(x.device), 
-            txt_ids.to(x.device), 
-            timestep, 
-            y.to(x.device), 
+            img.to(device=x.device, dtype=self.dtype), 
+            img_ids.to(device=x.device, dtype=self.dtype), 
+            txt.to(device=x.device, dtype=self.dtype), 
+            txt_ids.to(device=x.device, dtype=self.dtype), 
+            timestep.to(device=x.device, dtype=self.dtype), 
+            y.to(device=x.device, dtype=self.dtype), 
             guidance=guidance,
             ref_img=ref_img,
             ref_img_ids=ref_img_ids,
@@ -246,11 +255,16 @@ class Flux(nn.Module):
             attn_mask=attention_mask,
         )
 
-        return rearrange(
+        h_len = ((h + 1) // 2)
+        w_len = ((w + 1) // 2)
+        out = rearrange(
             out,
             "b (h w) (c ph pw) -> b c (h ph) (w pw)",
-            h,
-            w,
+            h=h_len,
+            w=w_len,
             ph=2,
             pw=2,
         )[:, :, :h, :w]
+
+        return out
+

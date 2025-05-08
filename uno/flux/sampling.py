@@ -21,7 +21,6 @@ from einops import rearrange, repeat
 from torch import Tensor
 from tqdm import tqdm
 
-from .model import Flux
 from .modules.conditioner import HFEmbedder
 
 
@@ -193,10 +192,11 @@ def prepare_img_encoding(img: Tensor):
 def prepare_ref_img_encoding(
     img: Tensor, 
     ref_imgs: list[Tensor], 
-    device,
     pe: Literal['d', 'h', 'w', 'o'] = 'd'
 ):
     bs, c, h, w = img.shape
+
+    print(f"doing ref img encoding base image shape={img.shape}")
 
     ref_img_ids = []
     ref_imgs_list = []
@@ -214,15 +214,16 @@ def prepare_ref_img_encoding(
         ref_img_ids1[..., 2] = ref_img_ids1[..., 2] + torch.arange(ref_w1 // 2)[None, :] + w_offset
         ref_img_ids1 = repeat(ref_img_ids1, "h w c -> b (h w) c", b=bs)
         ref_img_ids.append(ref_img_ids1)
+
+        print("encoded ref: ", ref_img.shape, ref_img.mean().item(), ref_img.std().item())
+
         ref_imgs_list.append(ref_img)
 
         # 更新pe shift
         pe_shift_h += ref_h1 // 2
         pe_shift_w += ref_w1 // 2
 
-    ref_img = tuple(ref_imgs_list),
-    ref_img_ids = [ref_img_id.to(device) for ref_img_id in ref_img_ids],
-    return (ref_img, ref_img_ids)
+    return (ref_imgs_list, ref_img_ids)
 
 def initial_prompt_encoding(
     t5: HFEmbedder,
@@ -283,7 +284,7 @@ def get_schedule(
 
 
 def denoise(
-    model: Flux,
+    model: "Flux",
     # model input
     img: Tensor,
     img_ids: Tensor,
