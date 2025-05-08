@@ -228,7 +228,7 @@ class Flux(nn.Module):
         bs, c, h, w = x.shape
 
         print(f"x input shape={x.shape}")
-        print(f"img_in_mean={model.img_in.weight.mean()}, img_out_min={model.img_out.weight.mean()}")
+        print(f"img_in_mean={self.img_in.weight.mean()}, final_mean={self.final_layer.weight.mean()}")
         print(f"img={img[:, :, :5, :5]}")
 
         x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
@@ -240,6 +240,7 @@ class Flux(nn.Module):
             ref_img = [r.to(device=x.device, dtype=self.dtype) for r in ref_img]
 
         if guidance is not None:
+            print(f"guidance shape={guidance.shape}")
             guidance = guidance.to(device=x.device, dtype=self.dtype)
 
         txt, txt_ids, y = final_prompt_encoding(bs, context, y)
