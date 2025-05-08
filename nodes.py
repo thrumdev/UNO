@@ -37,6 +37,8 @@ def make_fake_model_builder(model: FluxModel):
         model.patch_size = 2
         return model.to(device)
 
+    return return_model
+
 class UnoComfyAdapter(comfy.model_base.Flux):
     def __init__(model_config, model: FluxModel, device=None):
         super().__init__(model_config, comfy.model_base.ModelType.Flux, device, make_fake_model_builder(model))
