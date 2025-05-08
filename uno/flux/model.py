@@ -229,7 +229,10 @@ class Flux(nn.Module):
 
         print(f"x input shape={x.shape}")
         print(f"img_in_mean={self.img_in.weight.mean()}, final_mean={self.final_layer.linear.weight.mean()}")
-        print(f"x={x[:, :, :5, :5]}")
+        print(f"latent mean={latent.mean().item()} std={latent.std().item()}")
+        print(f"timestep={timestep} shape={timestep.shape}")
+        print(f"conditioning_shape={y.shape}")
+        print(f"context_shape={context.shape}")
 
         x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
         img, img_ids = prepare_img_encoding(x)
@@ -274,5 +277,7 @@ class Flux(nn.Module):
         )[:, :, :h, :w]
 
         print(f"rearranged out shape={out.shape}")
+        print(f"noise-pred mean={out.mean().item()} std={out.std().item()}")
+
         return out
 
