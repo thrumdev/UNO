@@ -73,19 +73,14 @@ class UnoFluxModelLoader:
         lora_path = folder_paths.get_full_path_or_raise("loras", lora_name)
         uno_sd = comfy.utils.load_torch_file(lora_path, safe_load=True)
 
-        # ensure device and type are consistent across both state dicts
-        if sd:
-            dtype = next(iter(sd.values())).dtype
-            device = next(iter(sd.values())).device
-            uno_sd = {k: v.to(dtype=dtype, device=device) for k, v in uno_sd.items()}
-
-        print(f"flux model has {len(sd)} params of type {str(dtype)}")
+        # strip out prefix
+        key_prefix = comfy.model_detection.unet_prefix_from_state_dict(sd)
+        sd = comfy.utils.state_dict_prefix_replace(sd, {key_prefix: ""}, filter_keys=True)
+        unet_config = comfy.model_detection.detect_unet_config(sd, "")
 
         print_sd_weightnames(sd, "fluxmodel")
         print_sd_weightnames(uno_sd, "uno")
 
-        # key-prefix is empty for flux.
-        unet_config = comfy.model_detection.detect_unet_config(sd, key_prefix="")
         assert unet_config is not None
         model_config = comfy.supported_models.Flux(unet_config)
 
@@ -93,6 +88,12 @@ class UnoFluxModelLoader:
         with torch.device("meta"):
             model = FluxModel(uno_util.configs[config_name].params)
         model = uno_util.set_lora(model, lora_rank, "meta")
+
+        # ensure device and type are consistent across both state dicts. strip out prefix
+        if sd:
+            dtype = next(iter(sd.values())).dtype
+            device = next(iter(sd.values())).device
+            uno_sd = {k: v.to(dtype=dtype, device=device) for k, v in uno_sd.items()}
 
         # merge state dicts and load
         sd.update(uno_sd)
