@@ -156,7 +156,7 @@ class UnoConditioning:
         ref_img = [r for r in ref_img if r is not None]
 
         for r in ref_img:
-            print(f"ref image shape={r.shape}")
+            print(f"ref image shape={r.shape} dtype={r.dtype}")
             assert r.shape[0] == 1
 
         # just copied from inference.py
@@ -174,7 +174,8 @@ class UnoConditioning:
             x = preprocess_ref(x, long_size=long_size)
             print(f"after preprocess shape: {x.size}")
 
-            x = TVF.to_tensor(x) * 2.0 - 1.0
+            x = TVF.to_tensor(x)
+            # x = x * 2.0 - 1.0
             print(f"after tensor conversion shape: {x.shape}")
             print(f"dtype={x.dtype}, min={x.min()}, max={x.max()}")
 
