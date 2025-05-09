@@ -180,7 +180,7 @@ class UnoConditioning:
 
 
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
-            rearrange(x, "b c h w -> b h w c")
+            x = rearrange(x, "b c h w -> b h w c")
             print(f"after unsqueeze: {x.shape}")
 
             return x
