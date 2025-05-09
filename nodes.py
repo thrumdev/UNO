@@ -180,7 +180,7 @@ class UnoConditioning:
 
             x = vae.encode(x[:,:,:,:3])
             print("post-VAE ref: ", x.shape, x.mean().item(), x.std().item())
-            x
+            return x
 
         ref_img = [preprocess(r[0]) for r in ref_img]
 
