@@ -3,10 +3,13 @@ import comfy.model_management as mm
 import folder_paths
 import node_helpers
 import torch
+import torchvision.transforms.functional as TVF
 
 from .uno.flux import util as uno_util
 from .uno.flux.model import Flux as FluxModel
+from .uno.flux.pipeline import preprocess_ref
 
+from PIL import Image
 
 def print_sd_weightnames(sd, name):
     print(f"finding weight names for {name}")
@@ -140,7 +143,6 @@ class UnoConditioning:
                 "ref_image_2": ("IMAGE",),
                 "ref_image_3": ("IMAGE",),
                 "ref_image_4": ("IMAGE",)
-
             }
         }
 
@@ -153,8 +155,23 @@ class UnoConditioning:
         ref_img = [ref_image_1, ref_image_2, ref_image_3, ref_image_4]
         ref_img = [r for r in ref_img if r is not None]
 
-        # this line is copied more or less verbatim from VaeEncode
-        ref_img = [vae.encode(pixels[:,:,:,:3]) for pixels in ref_img]
+        for r in ref_img:
+            assert r.shape[0] == 1
+
+        # just copied from inference.py
+        long_size = 512 if len(r) <= 1 else 320
+
+        def preprocess(x):
+            device = x.device
+            # assume x is a tensor of shape [B, H, W, 3]
+            # convert to image, resize
+            x = Image.fromarray(x.cpu().numpy())
+            x = preprocess_ref(x, long_size=long_size)
+            x = TVF.to_tensor(x) * 2.0 - 1.0
+            x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
+            return vae.encode(x)
+
+        ref_img = [preprocess(r[0]) for r in ref_img]
 
         # set the conditioning map.
         c = node_helpers.conditioning_set_values(conditioning, {"ref_img": ref_img})
