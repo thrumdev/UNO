@@ -187,6 +187,8 @@ class UnoConditioning:
         # set the conditioning map.
         if len(ref_img) > 0:
             c = node_helpers.conditioning_set_values(conditioning, {"ref_img": ref_img})
+        else:
+            c = conditioning
         return (c, )
 
 #copied from pipeline.py
