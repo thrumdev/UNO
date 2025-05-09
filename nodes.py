@@ -146,7 +146,7 @@ class UnoConditioning:
             }
         }
 
-    RETURN_TYPES = ("CONDITIONING",)
+    RETURN_TYPES = ("IMAGE",)
     FUNCTION = "append"
     CATEGORY = "uno"
     DESCRIPTION = "Provide 1-4 reference images for UNO to be VAE encoded and attached to the conditioning"
@@ -164,7 +164,7 @@ class UnoConditioning:
 
         def preprocess(x):
             device = x.device
-            # assume x is a tensor of shape [B, H, W, 3]
+            # assume x is a tensor of shape [B, 3, H, W]
             # convert to image, resize
             if x.dtype == torch.float32 and x.max() <= 1.0:
                 x = (x * 255).clamp(0, 255).to(torch.uint8)
@@ -182,11 +182,15 @@ class UnoConditioning:
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
             print(f"after unsqueeze: {x.shape}")
 
+            return x
+
             x = vae.encode(x)
             print("post-VAE ref: ", x.shape, x.mean().item(), x.std().item())
             return x
 
         ref_img = [preprocess(r[0]) for r in ref_img]
+
+        return x[0]
 
         # set the conditioning map.
         if len(ref_img) > 0:
