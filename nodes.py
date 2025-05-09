@@ -182,7 +182,6 @@ class UnoConditioning:
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
             print(f"after unsqueeze: {x.shape}")
 
-            print(f"VAE dtype={vae.dtype}")
             x = vae.encode(x)
             print("post-VAE ref: ", x.shape, x.mean().item(), x.std().item())
             return x
