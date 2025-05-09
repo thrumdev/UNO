@@ -192,7 +192,7 @@ class UnoConditioning:
 
         ref_img = [preprocess(r[0]) for r in ref_img]
 
-        return ref_img[0]
+        return (ref_img[0], )
 
         # set the conditioning map.
         if len(ref_img) > 0:
