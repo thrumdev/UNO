@@ -196,7 +196,7 @@ def prepare_ref_img_encoding(
 ):
     bs, c, h, w = img.shape
 
-    print(f"doing ref img encoding shape={img.shape}")
+    print(f"doing ref img encoding base image shape={img.shape}")
 
     ref_img_ids = []
     ref_imgs_list = []

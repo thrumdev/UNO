@@ -242,6 +242,8 @@ class Flux(nn.Module):
             ref_img_ids = [ref_img_id.to(device=x.device, dtype=self.dtype) for ref_img_id in ref_img_ids]
             ref_img = [r.to(device=x.device, dtype=self.dtype) for r in ref_img]
 
+            print("ref_img_ids stats", ref_img_ids[0].shape, ref_img_ids[0].mean().item(), ref_img_ids[0].std().item())
+
         if guidance is not None:
             print(f"guidance shape={guidance.shape}")
             guidance = guidance.to(device=x.device, dtype=self.dtype)
