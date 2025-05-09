@@ -112,6 +112,11 @@ class UnoFluxModelLoader:
         missing, unexpected = model.load_state_dict(sd, strict=False, assign=True)
         print(f"Loaded UNO LoRa. missing_count={len(missing)} unexpected_count={len(unexpected)}")
         
+        # DEBUG: see whether LoRa parameters make sense.
+        for name, param in model.named_parameters():
+            if "lora" in name:
+                print(f"{name}: mean={param.mean().item()}, std={param.std().item()}")
+
         # instantiate adapter.
         model = UnoComfyAdapter(model_config, model)
 
