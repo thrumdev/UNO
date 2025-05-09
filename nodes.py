@@ -233,9 +233,6 @@ class UnoVAE:
         return self.ae.encode(x.to(load_device, torch.float32)).to(torch.bfloat16)
 
     def decode(self, x: torch.Tensor):
-        # images in comfy are canonically b h w c
-        # but the decoder expects b c h w
-        x = rearrange(x, "b h w c -> b c h w")
         load_device = mm.get_torch_device()
         self.ae = self.ae.to(device=load_device)
         x = self.ae.decode(x.to(load_device, torch.float32))
