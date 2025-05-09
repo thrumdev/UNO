@@ -9,36 +9,11 @@ import torchvision.transforms.functional as TVF
 from .uno.flux import util as uno_util
 from .uno.flux.model import Flux as FluxModel
 
-from PIL import Image
-
-def print_sd_weightnames(sd, name):
-    print(f"finding weight names for {name}")
-    for k in sd:
-        if "double_block" in k:
-            print(f"Double block key: {k}")
-            break
-
-    for k in sd:
-        if "single_block" in k:
-            print(f"single block key: {k}")
-            break
-
-    for k in sd:
-        if "img_in" in k:
-            print(f"img_in key: {k}")
-            break
-
-    for k in sd:
-        if "vector_in" in k:
-            print(f"vector_in key: {k}")
-            break
-
 # returns a function that, when called, returns the given model
 def make_fake_model_builder(model: FluxModel):
     def return_model(image_model=None, final_layer=True, dtype=None, device=None, operations=None, **kwargs):
         # expected in the adapter.
         model.patch_size = 2
-        print(f"setting model dtype={dtype}")
         model.dtype = dtype
         return model.to(device)
 
@@ -88,14 +63,9 @@ class UnoFluxModelLoader:
         sd = comfy.utils.state_dict_prefix_replace(sd, {key_prefix: ""}, filter_keys=True)
         unet_config = comfy.model_detection.detect_unet_config(sd, "")
 
-        print_sd_weightnames(sd, "fluxmodel")
-        print_sd_weightnames(uno_sd, "uno")
-
         assert unet_config is not None
 
         model_config = comfy.supported_models.Flux(unet_config)
-        print("Created Flux:", type(model_config), hasattr(model_config, "unet_config"))
-        print(f"  unet config len={len(model_config.unet_config)}")
 
         # instantiate model class, update using lora
         with torch.device("meta"):
@@ -113,13 +83,7 @@ class UnoFluxModelLoader:
         # merge state dicts and load
         sd.update(uno_sd)
         missing, unexpected = model.load_state_dict(sd, strict=False, assign=True)
-        print(f"Loaded UNO LoRa. missing_count={len(missing)} unexpected_count={len(unexpected)}")
         
-        # DEBUG: see whether LoRa parameters make sense.
-        for name, param in model.named_parameters():
-            if "lora" in name:
-                print(f"{name}: mean={param.mean().item()}, std={param.std().item()}")
-
         # instantiate adapter.
         model = UnoComfyAdapter(model_config, model)
 
@@ -156,7 +120,6 @@ class UnoConditioning:
         ref_img = [r for r in ref_img if r is not None]
 
         for r in ref_img:
-            print(f"ref image shape={r.shape} dtype={r.dtype}")
             assert r.shape[0] == 1
 
         # just copied from inference.py
@@ -170,22 +133,15 @@ class UnoConditioning:
                 x = (x * 255).clamp(0, 255).to(torch.uint8)
 
             x = Image.fromarray((x.cpu().numpy().astype("uint8")))
-            print(f"image shape: {x.size}")
             x = preprocess_ref(x, long_size=long_size)
-            print(f"after preprocess shape: {x.size}")
 
             x = TVF.to_tensor(x)
             # x = x * 2.0 - 1.0
-            print(f"after tensor conversion shape: {x.shape}")
-            print(f"dtype={x.dtype}, min={x.min()}, max={x.max()}")
-
 
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
             x = rearrange(x, "b c h w -> b h w c")
-            print(f"after unsqueeze: {x.shape}")
 
             x = vae.encode(x[:,:,:,:3])
-            print("post-VAE ref: ", x.shape, x.mean().item(), x.std().item())
             return x
 
         ref_img = [preprocess(r[0]) for r in ref_img]
@@ -221,12 +177,8 @@ def preprocess_ref(raw_image: Image.Image, long_size: int = 512):
     right = left + target_w
     bottom = top + target_h
 
-    print(f"after resize: {raw_image.size}")
-
     # 进行中心裁剪
     raw_image = raw_image.crop((left, top, right, bottom))
-
-    print(f"after crop: {raw_image.size}")
 
     # 转换为 RGB 模式
     raw_image = raw_image.convert("RGB")

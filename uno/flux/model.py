@@ -166,34 +166,6 @@ class Flux(nn.Module):
         if img.ndim != 3 or txt.ndim != 3:
             raise ValueError("Input img and txt tensors must have 3 dimensions.")
 
-        print(f"img shape={img.shape}")
-        print(f"  {img[:, :2, :2]}")
-
-        print(f"img_ids shape={img_ids.shape}")
-        print(f"  {img_ids[:, :2, :2]}")
-
-        print(f"txt shape={txt.shape}")
-        print(f"  {txt[:, :2, :2]}")
-
-        print(f"txt_ids shape={txt_ids.shape}")
-        print(f"  {txt_ids[:, :2, :2]}")
-
-        print(f"timestep shape={timesteps.shape} ={timesteps[0]}")
-        print(f"y shape={y.shape}")
-        print(f"  {y[:, :2]}")
-
-        if guidance is not None:
-            print(f"guidance shape={guidance.shape} ={guidance[0]}")
-
-        for r in ref_img:
-            print(f"ref_img shape={r.shape}")
-            print(f"  {r[:, :2, :2]}")
-
-        for r in ref_img_ids:
-            print(f"ref_img_ids shape={r.shape}")
-            print(f"  {r[:, :2, :2]}")
-
-
         # running on sequences img
         img = self.img_in(img)
         vec = self.time_in(timestep_embedding(timesteps, 256))
@@ -239,8 +211,6 @@ class Flux(nn.Module):
 
         img = self.final_layer(img, vec)  # (N, T, patch_size ** 2 * out_channels)
 
-        print(f"text/image tokens={img_end}")
-        print(f"out shape={img.shape}")
         return img
 
     def forward(
@@ -257,13 +227,6 @@ class Flux(nn.Module):
     ) -> Tensor:
         bs, c, h, w = x.shape
 
-        print(f"x input shape={x.shape}")
-        print(f"img_in_mean={self.img_in.weight.mean()}, final_mean={self.final_layer.linear.weight.mean()}")
-        print(f"latent mean={x.mean().item()} std={x.std().item()}")
-        print(f"timestep={timestep} shape={timestep.shape}")
-        print(f"conditioning_shape={y.shape}")
-        print(f"context_shape={context.shape}")
-
         x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
         img, img_ids = prepare_img_encoding(x)
 
@@ -273,10 +236,7 @@ class Flux(nn.Module):
             ref_img_ids = [ref_img_id.to(device=x.device, dtype=self.dtype) for ref_img_id in ref_img_ids]
             ref_img = [r.to(device=x.device, dtype=self.dtype) for r in ref_img]
 
-            print("ref_img_ids stats", ref_img_ids[0].shape, ref_img_ids[0].mean().item(), ref_img_ids[0].std().item())
-
         if guidance is not None:
-            print(f"guidance shape={guidance.shape}")
             guidance = guidance.to(device=x.device, dtype=self.dtype)
 
         txt, txt_ids, y = final_prompt_encoding(bs, context, y)
@@ -295,9 +255,6 @@ class Flux(nn.Module):
             attn_mask=attention_mask,
         )
 
-        print(f"out shape={out.shape}")
-
-
         h_len = ((h + 1) // 2)
         w_len = ((w + 1) // 2)
         out = rearrange(
@@ -308,9 +265,6 @@ class Flux(nn.Module):
             ph=2,
             pw=2,
         )[:, :, :h, :w]
-
-        print(f"rearranged out shape={out.shape}")
-        print(f"noise-pred mean={out.mean().item()} std={out.std().item()}")
 
         return out
 
