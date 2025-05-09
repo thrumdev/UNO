@@ -196,6 +196,8 @@ def prepare_ref_img_encoding(
 ):
     bs, c, h, w = img.shape
 
+    print(f"doing ref img encoding shape={img.shape}")
+
     ref_img_ids = []
     ref_imgs_list = []
     pe_shift_w, pe_shift_h = w // 2, h // 2
@@ -212,6 +214,9 @@ def prepare_ref_img_encoding(
         ref_img_ids1[..., 2] = ref_img_ids1[..., 2] + torch.arange(ref_w1 // 2)[None, :] + w_offset
         ref_img_ids1 = repeat(ref_img_ids1, "h w c -> b (h w) c", b=bs)
         ref_img_ids.append(ref_img_ids1)
+
+        print("encoded ref: ", ref_img.shape, ref_img.mean().item(), ref_img.std().item())
+
         ref_imgs_list.append(ref_img)
 
         # 更新pe shift

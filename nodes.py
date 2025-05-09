@@ -178,7 +178,9 @@ class UnoConditioning:
             x = rearrange(x, "b c h w -> b h w c")
             print(f"after unsqueeze and rearrange shape: {x.shape}")
 
-            return vae.encode(x[:,:,:,:3])
+            x = vae.encode(x[:,:,:,:3])
+            print("post-VAE ref: ", x.shape, x.mean().item(), x.std().item())
+            x
 
         ref_img = [preprocess(r[0]) for r in ref_img]
 
