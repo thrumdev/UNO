@@ -200,7 +200,7 @@ class UnoVAELoader:
     def load_vae(self, vae_name):
                 # load uno lora safetensors
         vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
-        sd = comfy.utils.load_torch_file(vae_path, safe_lvaad=True)
+        sd = comfy.utils.load_torch_file(vae_path, safe_load=True)
         return (UnoVAE(sd),)
 
 class UnoVAE:
