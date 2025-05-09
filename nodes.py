@@ -146,7 +146,7 @@ class UnoConditioning:
             }
         }
 
-    RETURN_TYPES = ("IMAGE",)
+    RETURN_TYPES = ("LATENT",)
     FUNCTION = "append"
     CATEGORY = "uno"
     DESCRIPTION = "Provide 1-4 reference images for UNO to be VAE encoded and attached to the conditioning"
@@ -184,15 +184,11 @@ class UnoConditioning:
             x = rearrange(x, "b c h w -> b h w c")
             print(f"after unsqueeze: {x.shape}")
 
-            return x
-
-            x = vae.encode(x)
+            x = vae.encode(x[:,:,:,:3])
             print("post-VAE ref: ", x.shape, x.mean().item(), x.std().item())
             return x
 
         ref_img = [preprocess(r[0]) for r in ref_img]
-
-        return (ref_img[0], )
 
         # set the conditioning map.
         if len(ref_img) > 0:
