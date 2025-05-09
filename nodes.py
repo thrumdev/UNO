@@ -166,9 +166,16 @@ class UnoConditioning:
             # assume x is a tensor of shape [B, H, W, 3]
             # convert to image, resize
             x = Image.fromarray((x.cpu().numpy() * 255).astype("uint8"))
+            print(f"image shape: {x.size}")
             x = preprocess_ref(x, long_size=long_size)
+            print(f"after preprocess shape: {x.size}")
+
             x = TVF.to_tensor(x) * 2.0 - 1.0
+            print(f"after tensor conversion shape: {x.shape}")
+
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
+            print(f"after unsqueeze shape: {x.shape}")
+
             return vae.encode(x)
 
         ref_img = [preprocess(r[0]) for r in ref_img]
@@ -201,8 +208,12 @@ def preprocess_ref(raw_image: Image.Image, long_size: int = 512):
     right = left + target_w
     bottom = top + target_h
 
+    print(f"after resize: {raw_image.size}")
+
     # 进行中心裁剪
     raw_image = raw_image.crop((left, top, right, bottom))
+
+    print(f"after crop: {raw_image.size}")
 
     # 转换为 RGB 模式
     raw_image = raw_image.convert("RGB")
