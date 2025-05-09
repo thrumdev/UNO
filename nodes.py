@@ -164,7 +164,7 @@ class UnoConditioning:
 
         def preprocess(x):
             device = x.device
-            # assume x is a tensor of shape [B, 3, H, W]
+            # assume x is a tensor of shape [B, H, W, 3]
             # convert to image, resize
             if x.dtype == torch.float32 and x.max() <= 1.0:
                 x = (x * 255).clamp(0, 255).to(torch.uint8)
@@ -180,6 +180,7 @@ class UnoConditioning:
 
 
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
+            rearrange(x, "b c h w -> b h w c")
             print(f"after unsqueeze: {x.shape}")
 
             return x
