@@ -7,7 +7,6 @@ import torchvision.transforms.functional as TVF
 
 from .uno.flux import util as uno_util
 from .uno.flux.model import Flux as FluxModel
-from .uno.flux.pipeline import preprocess_ref
 
 from PIL import Image
 
@@ -176,6 +175,38 @@ class UnoConditioning:
         # set the conditioning map.
         c = node_helpers.conditioning_set_values(conditioning, {"ref_img": ref_img})
         return (c, )
+
+#copied from pipeline.py
+def preprocess_ref(raw_image: Image.Image, long_size: int = 512):
+    # 获取原始图像的宽度和高度
+    image_w, image_h = raw_image.size
+
+    # 计算长边和短边
+    if image_w >= image_h:
+        new_w = long_size
+        new_h = int((long_size / image_w) * image_h)
+    else:
+        new_h = long_size
+        new_w = int((long_size / image_h) * image_w)
+
+    # 按新的宽高进行等比例缩放
+    raw_image = raw_image.resize((new_w, new_h), resample=Image.LANCZOS)
+    target_w = new_w // 16 * 16
+    target_h = new_h // 16 * 16
+
+    # 计算裁剪的起始坐标以实现中心裁剪
+    left = (new_w - target_w) // 2
+    top = (new_h - target_h) // 2
+    right = left + target_w
+    bottom = top + target_h
+
+    # 进行中心裁剪
+    raw_image = raw_image.crop((left, top, right, bottom))
+
+    # 转换为 RGB 模式
+    raw_image = raw_image.convert("RGB")
+    return raw_image
+
 
 NODE_CLASS_MAPPINGS = {
     "UnoFluxModelLoader": UnoFluxModelLoader,
