@@ -1,5 +1,6 @@
 import comfy
 import comfy.model_management as mm
+from einops import rearrange
 import folder_paths
 import node_helpers
 import torch
@@ -174,9 +175,10 @@ class UnoConditioning:
             print(f"after tensor conversion shape: {x.shape}")
 
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
-            print(f"after unsqueeze shape: {x.shape}")
+            x = rearrange(x, "b c h w -> b h w c")
+            print(f"after unsqueeze and rearrange shape: {x.shape}")
 
-            return vae.encode(x)
+            return vae.encode(x[:,:,:,:3])
 
         ref_img = [preprocess(r[0]) for r in ref_img]
 
