@@ -166,13 +166,18 @@ class UnoConditioning:
             device = x.device
             # assume x is a tensor of shape [B, H, W, 3]
             # convert to image, resize
-            x = Image.fromarray((x.cpu().numpy() * 255).astype("uint8"))
+            if x.dtype == torch.float32 and x.max() <= 1.0:
+                x = (x * 255).clamp(0, 255).to(torch.uint8)
+
+            x = Image.fromarray((x.cpu().numpy().astype("uint8")))
             print(f"image shape: {x.size}")
             x = preprocess_ref(x, long_size=long_size)
             print(f"after preprocess shape: {x.size}")
 
             x = TVF.to_tensor(x) * 2.0 - 1.0
             print(f"after tensor conversion shape: {x.shape}")
+            print(f"dtype={x.dtype}, min={x.min()}, max={x.max()}")
+
 
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
             x = rearrange(x, "b c h w -> b h w c")
