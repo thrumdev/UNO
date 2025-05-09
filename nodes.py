@@ -146,7 +146,7 @@ class UnoConditioning:
             }
         }
 
-    RETURN_TYPES = ("LATENT",)
+    RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "append"
     CATEGORY = "uno"
     DESCRIPTION = "Provide 1-4 reference images for UNO to be VAE encoded and attached to the conditioning"
