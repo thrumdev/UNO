@@ -159,7 +159,7 @@ class UnoConditioning:
             assert r.shape[0] == 1
 
         # just copied from inference.py
-        long_size = 512 if len(r) <= 1 else 320
+        long_size = 512 if len(ref_img) <= 1 else 320
 
         def preprocess(x):
             device = x.device
