@@ -166,6 +166,21 @@ class Flux(nn.Module):
         if img.ndim != 3 or txt.ndim != 3:
             raise ValueError("Input img and txt tensors must have 3 dimensions.")
 
+        print(f"img shape={img.shape}")
+        print(f"img_ids shape={img_ids.shape}")
+        print(f"txt shape={txt.shape}")
+        print(f"txt_ids shape={txt_ids.shape}")
+        print(f"timestep shape={timesteps.shape}")
+        print(f"y shape={y.shape}")
+        if guidance is not None:
+            print(f"guidance shape={guidance.shape}")
+
+        for r in ref_img:
+            print(f"ref_img shape={r.shape}")
+
+        for r in ref_img_ids:
+            print(f"ref_img_ids shape={r.shape}")
+
         # running on sequences img
         img = self.img_in(img)
         vec = self.time_in(timestep_embedding(timesteps, 256))
@@ -180,7 +195,6 @@ class Flux(nn.Module):
 
         # concat ref_img/img
         img_end = img.shape[1]
-        print(f"img tokens {img_end}")
         if ref_img is not None:
             if isinstance(ref_img, tuple) or isinstance(ref_img, list):
                 img_in = [img] + [self.img_in(ref) for ref in ref_img]
@@ -211,6 +225,9 @@ class Flux(nn.Module):
         img = img[:, :img_end, ...]
 
         img = self.final_layer(img, vec)  # (N, T, patch_size ** 2 * out_channels)
+
+        print(f"text/image tokens={img_end}")
+        print(f"out shape={img.shape}")
         return img
 
     def forward(
