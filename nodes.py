@@ -237,6 +237,7 @@ class UnoVAE:
         self.ae = self.ae.to(device=load_device)
         x = self.ae.decode(x.to(load_device, torch.float32))
         x = rearrange(x, "b c h w -> b h w c")
+        return x
 
 NODE_CLASS_MAPPINGS = {
     "UnoFluxModelLoader": UnoFluxModelLoader,
