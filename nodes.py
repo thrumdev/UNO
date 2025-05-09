@@ -155,6 +155,7 @@ class UnoConditioning:
         ref_img = [r for r in ref_img if r is not None]
 
         for r in ref_img:
+            print(f"ref image shape={r.shape}")
             assert r.shape[0] == 1
 
         # just copied from inference.py
@@ -164,7 +165,7 @@ class UnoConditioning:
             device = x.device
             # assume x is a tensor of shape [B, H, W, 3]
             # convert to image, resize
-            x = Image.fromarray(x.cpu().numpy())
+            x = Image.fromarray((x.cpu().numpy() * 255).astype("uint8"))
             x = preprocess_ref(x, long_size=long_size)
             x = TVF.to_tensor(x) * 2.0 - 1.0
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
