@@ -1,13 +1,16 @@
 import comfy
 import comfy.model_management as mm
-from einops import rearrange
 import folder_paths
 import node_helpers
 import torch
 import torchvision.transforms.functional as TVF
+from einops import rearrange
+from PIL import Image
 
 from .uno.flux import util as uno_util
 from .uno.flux.model import Flux as FluxModel
+from .uno.flux.modules.autoencoder import AutoEncoder
+
 
 # returns a function that, when called, returns the given model
 def make_fake_model_builder(model: FluxModel):
@@ -83,6 +86,7 @@ class UnoFluxModelLoader:
         # merge state dicts and load
         sd.update(uno_sd)
         missing, unexpected = model.load_state_dict(sd, strict=False, assign=True)
+        print(f"Loaded UNO model missing={missing} unexpected={unexpected}")
         
         # instantiate adapter.
         model = UnoComfyAdapter(model_config, model)
@@ -136,7 +140,6 @@ class UnoConditioning:
             x = preprocess_ref(x, long_size=long_size)
 
             x = TVF.to_tensor(x)
-            # x = x * 2.0 - 1.0
 
             x = x.unsqueeze(0).to(device=device, dtype=torch.float32)
             x = rearrange(x, "b c h w -> b h w c")
@@ -184,12 +187,67 @@ def preprocess_ref(raw_image: Image.Image, long_size: int = 512):
     raw_image = raw_image.convert("RGB")
     return raw_image
 
+class UnoVAELoader:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": { "vae_name": (folder_paths.get_filename_list("vae"), )}}
+    RETURN_TYPES = ("VAE",)
+    FUNCTION = "load_vae"
+
+    CATEGORY = "uno"
+    DESCRIPTION = "Load the Flux VAE for use with UNO"
+
+    def load_vae(self, vae_name):
+                # load uno lora safetensors
+        vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
+        sd = comfy.utils.load_torch_file(vae_path, safe_lvaad=True)
+        return (UnoVAE(sd),)
+
+class UnoVAE:
+    def __init__(self, sd):
+        ae_params = uno_util.AutoEncoderParams(
+            resolution=256,
+            in_channels=3,
+            ch=128,
+            out_ch=3,
+            ch_mult=[1, 2, 4, 4],
+            num_res_blocks=2,
+            z_channels=16,
+            scale_factor=0.3611,
+            shift_factor=0.1159,
+        )
+
+        self.ae = AutoEncoder(ae_params)
+        missing, unexpected = self.ae.load_state_dict(sd, strict=False, assign=True)
+        print(f"Loaded VAE missing={missing} unexpected={unexpected}")
+        
+
+    def encode(self, x: torch.Tensor):
+        # images in comfy are canonically b h w c and [0.0, 1.0]
+        # but the encoder expects b c h w and [-1.0, 1.0]
+        x = rearrange(x, "b h w c -> b c h w")
+        x = x * 2.0 - 1.0
+
+        load_device = mm.get_torch_device()
+        self.ae = self.ae.to(device=load_device)
+        return self.ae.encode(x.to(load_device, torch.float32)).to(torch.bfloat16)
+
+    def decode(self, x: torch.Tensor):
+        # images in comfy are canonically b h w c
+        # but the decoder expects b c h w
+        x = rearrange(x, "b h w c -> b c h w")
+        load_device = mm.get_torch_device()
+        self.ae = self.ae.to(device=load_device)
+        x = self.ae.decode(x.to(load_device, torch.float32))
+        x = rearrange(x, "b c h w -> b h w c")
 
 NODE_CLASS_MAPPINGS = {
     "UnoFluxModelLoader": UnoFluxModelLoader,
     "UnoConditioning": UnoConditioning,
+    "UnoVAELoader": UnoVAELoader,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "UnoFluxModelLoader": "UNO Model Loader",
     "UnoConditioning": "Conditioning for UNO sampling",
+    "UNOVAELoader": "UNO Flux VAE Loader",
 }
