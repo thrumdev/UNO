@@ -167,19 +167,32 @@ class Flux(nn.Module):
             raise ValueError("Input img and txt tensors must have 3 dimensions.")
 
         print(f"img shape={img.shape}")
+        print(f"  {img[:, :2, :2]}")
+
         print(f"img_ids shape={img_ids.shape}")
+        print(f"  {img_ids[:, :2, :2]}")
+
         print(f"txt shape={txt.shape}")
+        print(f"  {txt[:, :2, :2]}")
+
         print(f"txt_ids shape={txt_ids.shape}")
-        print(f"timestep shape={timesteps.shape}")
+        print(f"  {txt_ids[:, :2, :2]}")
+
+        print(f"timestep shape={timesteps.shape} ={timesteps[0]}")
         print(f"y shape={y.shape}")
+        print(f"  {y[:, :2]}")
+
         if guidance is not None:
-            print(f"guidance shape={guidance.shape}")
+            print(f"guidance shape={guidance.shape} ={guidance[0]}")
 
         for r in ref_img:
             print(f"ref_img shape={r.shape}")
+            print(f"  {r[:, :2, :2]}")
 
         for r in ref_img_ids:
             print(f"ref_img_ids shape={r.shape}")
+            print(f"  {r[:, :2, :2]}")
+
 
         # running on sequences img
         img = self.img_in(img)
@@ -254,6 +267,7 @@ class Flux(nn.Module):
         x = comfy.ldm.common_dit.pad_to_patch_size(x, (2, 2))
         img, img_ids = prepare_img_encoding(x)
 
+        ref_img_ids = None
         if ref_img is not None: 
             ref_img, ref_img_ids = prepare_ref_img_encoding(x, ref_img)
             ref_img_ids = [ref_img_id.to(device=x.device, dtype=self.dtype) for ref_img_id in ref_img_ids]
