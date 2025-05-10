@@ -237,6 +237,9 @@ class UnoVAE:
         self.ae = self.ae.to(device=load_device)
         x = self.ae.decode(x.to(load_device, torch.float32))
         x = rearrange(x, "b c h w -> b h w c")
+
+        # decoder outputs [-1, 1] but images in comfy are [0.0, 1.0]
+        x = (x + 1.0) / 2.0
         return x
 
 NODE_CLASS_MAPPINGS = {
